@@ -1,0 +1,1 @@
+extern void TimeToTm(uint32_t time, struct tm* ptm);
