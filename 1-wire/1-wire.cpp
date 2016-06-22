@@ -225,7 +225,6 @@ int OneWireMain()
             if (moreBitsToWrite(byteindex))
             {
                 int bit = getBitAtPosition(byteindex, bitmask);
-                LogF("> By %d, Ma %x, Bi %d\r\n", byteindex, bitmask, bit);
                 incrementBitPosition(&byteindex, &bitmask);
                 if (moreBitsToWrite(byteindex)) OneWireBusWriteBit(bit);
                 else                            OneWireBusWriteBitWithPullUp(bit, pullupms);
@@ -247,7 +246,6 @@ int OneWireMain()
             }
             break;
         case HANDLE_XCHG_READ:
-            LogF("< By %d, Ma %x, Bi %d\r\n", byteindex, bitmask, OneWireBusValue);
             addBitToCrc(OneWireBusValue);
             setBitAtPosition(byteindex, bitmask, OneWireBusValue);
             incrementBitPosition(&byteindex, &bitmask);
