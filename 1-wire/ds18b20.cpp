@@ -5,7 +5,7 @@
 #include    "wifi.h"
 #include "ds18b20.h"
 
-#define DEBUG true //Set this to true to add debug messages to the log
+#define DEBUG false //Set this to true to add debug messages to the log
 
 #define DEVICE_MAX 4
 

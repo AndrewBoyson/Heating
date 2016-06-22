@@ -106,7 +106,7 @@ int RtcGetGenReg(int index)
             return 0;
     }
 }
-void RtcGetGenReg(int index, int value)
+void RtcSetGenReg(int index, int value)
 {
     switch (index)
     {

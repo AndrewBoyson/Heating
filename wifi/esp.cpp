@@ -267,7 +267,6 @@ int isTimeout()
 }
 int EspMain()
 {
-    
     pulseResetPin();
     
     //Reset line availability one shot

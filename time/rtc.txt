@@ -1,0 +1,18 @@
+1 bits on/off
+3 bits day of week
+8 bits 3600 / 256 = 240 x 15 minute intervals
+
+5 x 64 bits = 320 bits
+320 / 12 = 26 entries
+Need 4 for weekdays and 2 for weekends ==> 24
+
+Or
+
+1 bits on/off
+1 bits weekday or weekend
+8 bits 3600 / 256 = 240 x 15 minute intervals
+
+5 x 64 bits = 320 bits
+320 / 10 = 32 entries
+Need 4 for weekdays and 2 for weekends ==> 6
+ 
