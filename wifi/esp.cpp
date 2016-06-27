@@ -63,9 +63,9 @@ static int addChar(char c)
 }
 //Unsolicited ntp or http requests
 //================================
-void *EspIpdBuffer[4];
-int   EspIpdBufferLen[4];
-int   EspIpdReserved[4];
+void *EspIpdBuffer[ESP_ID_COUNT];
+int   EspIpdBufferLen[ESP_ID_COUNT];
+int   EspIpdReserved[ESP_ID_COUNT];
 int   EspIpdLength;
 int   EspIpdId;
 int   EspDataAvailable;
@@ -141,7 +141,7 @@ int EspInit()
 {
     EspResetAndStop();
     UartBaud(CfgBaud);
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < ESP_ID_COUNT; i++)
     {
         EspIpdBuffer[i] = NULL;
         EspIpdBufferLen[i] = 0;
