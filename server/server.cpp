@@ -46,7 +46,7 @@ static int sendMain()
     {
         case HTML_NOTHING_TO_SEND:
             id++;
-            if (id > 3) id = 0;
+            if (id >= ESP_ID_COUNT) id = 0;
             break;
         case HTML_MORE_TO_SEND:
             if (length < 0) return -1;

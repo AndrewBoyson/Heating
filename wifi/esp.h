@@ -3,6 +3,8 @@
 #define ESP_TIMEOUT    2
 #define ESP_OVERFLOW   3
 
+#define ESP_ID_COUNT 4
+
 extern char  EspLine[];
 extern char  EspResp[];
 extern void *EspIpdBuffer[];

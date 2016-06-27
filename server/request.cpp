@@ -8,144 +8,114 @@
 #define RECV_BUFFER_SIZE 128
 static char recvbuffer[RECV_BUFFER_SIZE];
 
-static int splitRequest(char** ppMethod, char** ppPath, char** ppQuery, int *pLenMethod, int *pLenPath, int *pLenQuery) //returns 1 if malformed request; 0 if ok
+static int splitRequest(char** ppMethod, char** ppPath, char** ppQuery) //returns 1 if malformed request; 0 if ok
 {    
     char* p  = recvbuffer;
-    char* pE = recvbuffer + RECV_BUFFER_SIZE;
+    char* pE = recvbuffer + RECV_BUFFER_SIZE - 1; //Guarantee have room for null at end of string
     
     *ppMethod   = NULL;
     *ppPath     = NULL;
     *ppQuery    = NULL;
-    *pLenMethod = 0;
-    *pLenPath   = 0;
-    *pLenQuery  = 0;
 
-    while (*p == ' ')                   //Loop to non space
+    while (*p == ' ')                   //Move past any leading spaces
     {
         if (p == pE)     return -1;
         if (*p < ' ')    return -1;
         if (*p >= 0x7f)  return -1;
         p++;
     }
-    *ppMethod = p;                      //Record the start of the method GET or POST
+    *ppMethod = p;                      //Record the start of the method (GET or POST)
  
-    while (*p != ' ')                   //Loop to a space
+    while (*p != ' ')                   //Move past the method
     {
         if (p == pE)     return -1;
         if (*p < ' ')    return -1;
         if (*p >= 0x7f)  return -1;
         p++;
     }
-    *pLenMethod = p - *ppMethod;        //Record the length of the method GET or POST
-    
+    *p = 0;                             //Terminate the method
+    p++;                                //Start at next character
 
-    while (*p == ' ')         //Loop to non space
+    while (*p == ' ')                   //Move past any spaces
     {
         if (p == pE)     return -1;
         if (*p < ' ')    return -1;
         if (*p >= 0x7f)  return -1;
         p++;
     }
-    *ppPath = p;                        //Record the start of the file part of the url
+    *ppPath = p;                        //Record the start of the path
     
-    while (*p != ' ')                   //Loop to space
+    while (*p != ' ')                   //Move past the path and query
     {
         if (p == pE)     return -1;
         if (*p < ' ')    return -1;
         if (*p >= 0x7f)  return -1;
-        if (*p == '?')  *ppQuery = p + 1;
+        if (*p == '?')
+        {
+            *p = 0;                    //Terminate the path
+            *ppQuery = p + 1;          //Record the start of the query
+        }
         p++;
     }
+    *p = 0;                            //Terminate the path or query
 
-    if (*ppQuery)                       //Calulate length of the file and query parts
-    {
-        *pLenPath  = *ppQuery - *ppPath - 1;
-        *pLenQuery = p - *ppQuery;
-    }
-    else
-    {
-        *pLenPath = p - *ppPath;
-        *pLenQuery = 0;
-    }
     
     return 0;
 }
-static int splitQuery(char* pQuery, int lenQuery, char** ppName, char** ppValue, int* pLenName, int* pLenValue) //returns 1 if malformed request; 0 if ok
-{
-    char* p  = pQuery;
-    char* pE = pQuery + lenQuery;
-    
-    *ppName    = NULL;
+static int splitQuery(char* p, char** ppName, char** ppValue) //returns 1 if malformed request; 0 if ok
+{    
+    *ppName    = p;                     //Record the start of the name
     *ppValue   = NULL;
-    *pLenName  = 0;
-    *pLenValue = 0;
-
-    *ppName = p;                        //Record the start of the name
 
     while (*p != '=')                   //Loop to an '='
     {
-        if (p == pE)     return -1;
         if (*p < ' ')    return -1;
         if (*p >= 0x7f)  return -1;
         p++;
     }
-    *pLenName = p - *ppName;        //Record the length of the name
-    p++;
-    *ppValue = p;
-    *pLenValue = pE - *ppValue;     //Record the length of the value
+    *p = 0;                             //Terminate the name
+    *ppValue = p + 1;                   //Record the start of the value
     return 0;
-}
-int compare(char* mem, int len, char* str) //Returns true if same and false if not
-{
-    if (strlen(str) != len) return false;
-    if (memcmp(mem, str, len)) return false;
-    return true;
 }
 int RequestHandle(int id)
 {
     char* pMethod;
     char* pPath;
     char* pQuery;
-    int lenMethod;
-    int lenQuery;
-    int lenPath;
-    int r = splitRequest(&pMethod, &pPath, &pQuery, &lenMethod, &lenPath, &lenQuery);
+    int r = splitRequest(&pMethod, &pPath, &pQuery);
     if (r)
     {
         HtmlStart(id, HTML_BAD_REQUEST);
         return 0;
     }
 
-    if (!compare(pMethod, lenMethod, "GET"))
+    if (strcmp(pMethod, "GET") != 0)
     {
         HtmlStart(id, HTML_BAD_METHOD);
         return 0;
     }
     
-    if (compare(pPath, lenPath, "/"))
+    if (strcmp(pPath, "/") == 0)
     {
         if (pQuery)
         {
             char* pName;
             char* pValue;
-            int lenName;
-            int lenValue;
-            splitQuery(pQuery, lenQuery, &pName, &pValue, &lenName, &lenValue);
-            if (compare(pName, lenName, "ledonoff"))
+            splitQuery(pQuery, &pName, &pValue);
+            if (strcmp(pName, "ledonoff") == 0)
             {
-                if (compare(pValue, lenValue, "&led=on")) Led1 = 1;
-                else                                      Led1 = 0;
+                if (strcmp(pValue, "&led=on") == 0) Led1 = 1;
+                else                                Led1 = 0;
             }
-            if (compare(pName, lenName, "scheme1"))
-            {
-                HeatingSetSchemeA(1, lenValue, pValue);
-            }
+            if (strcmp(pName, "schedule1") == 0) HeatingScheduleSave(0, pValue);
+            if (strcmp(pName, "schedule2") == 0) HeatingScheduleSave(1, pValue);
+            if (strcmp(pName, "schedule3") == 0) HeatingScheduleSave(2, pValue);
         }
         HtmlStart(id, HTML_LED);
         return 0;
     }
     
-    if (compare(pPath, lenPath, "/log"))
+    if (strcmp(pPath, "/log") == 0)
     {
         HtmlStart(id, HTML_LOG);
         return 0;
@@ -157,7 +127,7 @@ int RequestHandle(int id)
 
 int RequestInit()
 {
-    for (int id = 0; id < 4; id++)
+    for (int id = 0; id < ESP_ID_COUNT; id++)
     {
         if (!EspIpdReserved[id])
         {

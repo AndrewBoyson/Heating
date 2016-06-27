@@ -1,2 +1,2 @@
-extern int HeatingSetSchemeA(int index, int bufferSize, char *text);
-extern int HeatingGetSchemeA(int index, int bufferSize, char *text);
+extern void HeatingScheduleSave(int index, char *text);
+extern int  HeatingScheduleRead(int index, int bufferSize, char *text);

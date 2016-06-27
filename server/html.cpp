@@ -236,10 +236,7 @@ static int fillLed(int chunk, int* pLength)
         "<br/>"
         "<form action='/' method='get'>\r\n"
         "<input type='hidden' name='ledonoff'>\r\n");
-    }
-    if (++posn == chunk)
-    {
-        len = fillChunk("Led <input type='checkbox' name='led' value='on'");
+        len = addChunk(len, "Led <input type='checkbox' name='led' value='on'");
         if (Led1) len = addChunk(len, " checked='checked'");
         len = addChunk(len, ">\r\n");
         len = addChunk(len,
@@ -251,13 +248,34 @@ static int fillLed(int chunk, int* pLength)
         len = addChunk(len,
         "<br/>"
         "<form action='/' method='get'>\r\n"
-        "Scheme 1 <input type='text' name='scheme1' value='");
-        len += HeatingGetSchemeA(1, SEND_BUFFER_SIZE - len, sendbuffer + len);
+        "Schedule 1 <input type='text' name='schedule1' size='30' value='");
+        len += HeatingScheduleRead(0, SEND_BUFFER_SIZE - len, sendbuffer + len);
         len = addChunk(len, "'>\r\n");
+        len = addChunk(len,
+        "<input type='submit' value='Set'><br/>\r\n"
+        "</form>\r\n");
     }
-    if (++posn == chunk)
+    if (++posn == chunk) //Scheme text input form
     {
-        len = fillChunk(
+        len = addChunk(len,
+        "<br/>"
+        "<form action='/' method='get'>\r\n"
+        "Schedule 2 <input type='text' name='schedule2' size='30' value='");
+        len += HeatingScheduleRead(1, SEND_BUFFER_SIZE - len, sendbuffer + len);
+        len = addChunk(len, "'>\r\n");
+        len = addChunk(len,
+        "<input type='submit' value='Set'><br/>\r\n"
+        "</form>\r\n");
+    }
+    if (++posn == chunk) //Scheme text input form
+    {
+        len = addChunk(len,
+        "<br/>"
+        "<form action='/' method='get'>\r\n"
+        "Schedule 3 <input type='text' name='schedule3' size='30' value='");
+        len += HeatingScheduleRead(2, SEND_BUFFER_SIZE - len, sendbuffer + len);
+        len = addChunk(len, "'>\r\n");
+        len = addChunk(len,
         "<input type='submit' value='Set'><br/>\r\n"
         "</form>\r\n");
     }
