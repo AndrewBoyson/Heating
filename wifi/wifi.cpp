@@ -21,6 +21,7 @@ enum {
     AM_CONNECT,
     AM_GET_STATUS,
     AM_WAIT_WIFI,
+    AM_FINISH,
     AM_MUX,
     AM_VERSION,
     AM_STARTED
@@ -80,7 +81,7 @@ int WifiMain()
                     result = AT_NONE;
                     break;
                 default:
-                    am = AM_SET_MODE;
+                    am = AM_CONNECT;
                     result = AT_NONE;
                     break;
             }
@@ -93,7 +94,7 @@ int WifiMain()
                     break;
                 case AT_SUCCESS:
                     WifiStatus = WIFI_GOT_IP;
-                    am = AM_MUX;
+                    am = AM_FINISH;
                     result = AT_NONE;
                     break;
                 default:
@@ -144,21 +145,6 @@ int WifiMain()
                     return -1;
             }
             break;
-        case AM_SET_MODE:
-            switch (result)
-            {
-                case AT_NONE:
-                    AtSetMode(1, &result);
-                    break;
-                case AT_SUCCESS:
-                    am = AM_CONNECT;
-                    result = AT_NONE;
-                    break;
-                default:
-                    LogCrLf("Could not set mode");
-                    return -1;
-            }
-            break;
         
         case AM_CONNECT:
             switch (result)
@@ -190,7 +176,7 @@ int WifiMain()
                     {
                         case 2:
                             WifiStatus = WIFI_GOT_IP;
-                            am = AM_MUX;
+                            am = AM_FINISH;
                             break;
                         case 3:
                             WifiStatus = WIFI_CONNECTED;
@@ -212,6 +198,25 @@ int WifiMain()
             }
             break;
         
+        case AM_FINISH:
+            am = AM_SET_MODE;
+            result = AT_NONE;
+            break;
+        case AM_SET_MODE:
+            switch (result)
+            {
+                case AT_NONE:
+                    AtSetMode(1, &result);
+                    break;
+                case AT_SUCCESS:
+                    am = AM_MUX;
+                    result = AT_NONE;
+                    break;
+                default:
+                    LogCrLf("Could not set mode");
+                    return -1;
+            }
+            break;
         case AM_MUX:
             switch (result)
             {

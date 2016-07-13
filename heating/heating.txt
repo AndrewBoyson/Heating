@@ -54,4 +54,4 @@ Spare
 
 Use the following scheme:
 
-[0|1]-[00-23]:[00-59];
+[-|*][00-23][00-59]

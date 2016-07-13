@@ -3,9 +3,11 @@
 #include   "io.h"
 #include  "log.h"
 
+#define REG_COUNT 5
+
 static union
 {
-    int GenRegs[5];
+    int GenRegs[REG_COUNT];
     __packed struct
     {
         unsigned On      :  1;
@@ -60,11 +62,11 @@ static union
 
 void saveSchedules()
 {
-    for (int i = 0; i < 5; i++) RtcSetGenReg(i, schedules.GenRegs[i]);
+    for (int i = 0; i < REG_COUNT; i++) RtcSetGenReg(i, schedules.GenRegs[i]);
 }
 void readSchedules()
 {
-    for (int i = 0; i < 5; i++) schedules.GenRegs[i] = RtcGetGenReg(i);
+    for (int i = 0; i < REG_COUNT; i++) schedules.GenRegs[i] = RtcGetGenReg(i);
 }
 void setCycle(int schedule, int cycle, int on, unsigned minutes)
 {    
@@ -104,6 +106,7 @@ void getCycle(int schedule, int cycle, int* pon, unsigned* pminutes)
 //[*|-][00-23][00-59];
 static int toStringSchedule(int schedule, int buflen, char* buffer)
 {
+    if (buflen < 25) return -1;
     char* p = buffer;
     for (int cycle = 0; cycle < 4; cycle++)
     {
@@ -124,7 +127,8 @@ static int toStringSchedule(int schedule, int buflen, char* buffer)
         *p++ = tensOfMinutes + '0';
         *p++ = minutes + '0';
     }
-    return p - buffer;
+    *p = 0;
+    return 0;
 }
 static void handleCycleDelim(int schedule, int cycle, int on, unsigned hours, unsigned mins)
 {
@@ -210,4 +214,93 @@ int HeatingScheduleRead(int schedule, int bufSize, char* text)
 {
     readSchedules();
     return toStringSchedule(schedule, bufSize, text);
+}
+int  HeatingGetOnOff()
+{
+    readSchedules();
+    return schedules.On;
+}
+void HeatingSetOnOff(int value)
+{
+    readSchedules();
+    schedules.On = value;
+    saveSchedules();
+}
+
+int  HeatingGetMon()
+{
+    readSchedules();
+    return schedules.Mon;
+}
+void HeatingSetMon(int value)
+{
+    readSchedules();
+    schedules.Mon = value;
+    saveSchedules();
+}
+int  HeatingGetTue()
+{
+    readSchedules();
+    return schedules.Tue;
+}
+void HeatingSetTue(int value)
+{
+    readSchedules();
+    schedules.Tue = value;
+    saveSchedules();
+}
+int  HeatingGetWed()
+{
+    readSchedules();
+    return schedules.Wed;
+}
+void HeatingSetWed(int value)
+{
+    readSchedules();
+    schedules.Wed = value;
+    saveSchedules();
+}
+int  HeatingGetThu()
+{
+    readSchedules();
+    return schedules.Thu;
+}
+void HeatingSetThu(int value)
+{
+    readSchedules();
+    schedules.Thu = value;
+    saveSchedules();
+}
+int  HeatingGetFri()
+{
+    readSchedules();
+    return schedules.Fri;
+}
+void HeatingSetFri(int value)
+{
+    readSchedules();
+    schedules.Fri = value;
+    saveSchedules();
+}
+int  HeatingGetSat()
+{
+    readSchedules();
+    return schedules.Sat;
+}
+void HeatingSetSat(int value)
+{
+    readSchedules();
+    schedules.Sat = value;
+    saveSchedules();
+}
+int  HeatingGetSun()
+{
+    readSchedules();
+    return schedules.Sun;
+}
+void HeatingSetSun(int value)
+{
+    readSchedules();
+    schedules.Sun = value;
+    saveSchedules();
 }

@@ -1,2 +1,18 @@
 extern void HeatingScheduleSave(int index, char *text);
 extern int  HeatingScheduleRead(int index, int bufferSize, char *text);
+extern int  HeatingGetOnOff();
+extern void HeatingSetOnOff(int value);
+extern int  HeatingGetMon();
+extern void HeatingSetMon(int value);
+extern int  HeatingGetTue();
+extern void HeatingSetTue(int value);
+extern int  HeatingGetWed();
+extern void HeatingSetWed(int value);
+extern int  HeatingGetThu();
+extern void HeatingSetThu(int value);
+extern int  HeatingGetFri();
+extern void HeatingSetFri(int value);
+extern int  HeatingGetSat();
+extern void HeatingSetSat(int value);
+extern int  HeatingGetSun();
+extern void HeatingSetSun(int value);

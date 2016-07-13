@@ -49,12 +49,13 @@ static int sendMain()
             if (id >= ESP_ID_COUNT) id = 0;
             break;
         case HTML_MORE_TO_SEND:
-            if (length < 0) return -1;
-            if (length > 0) AtSendData(id, length, pBuffer, NULL);
+            AtSendData(id, length, pBuffer, NULL);
             break;
         case HTML_NO_MORE_TO_SEND:
             AtClose(id, NULL);
             break;
+        case HTML_ERROR:
+            return -1;
     }
     return 0;
 }
