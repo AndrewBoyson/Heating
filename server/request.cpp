@@ -102,14 +102,30 @@ int RequestHandle(int id)
             char* pName;
             char* pValue;
             splitQuery(pQuery, &pName, &pValue);
-            if (strcmp(pName, "ledonoff") == 0)
+            if (strcmp(pName, "led") == 0)
             {
-                if (strcmp(pValue, "&led=on") == 0) Led1 = 1;
-                else                                Led1 = 0;
+                if (strcmp(pValue, "&on=on") == 0) Led1 = 1;
+                else                               Led1 = 0;
+            }
+            if (strcmp(pName, "heating") == 0)
+            {
+                if (strcmp(pValue, "&on=on") == 0) HeatingSetOnOff(1);
+                else                             HeatingSetOnOff(0);
             }
             if (strcmp(pName, "schedule1") == 0) HeatingScheduleSave(0, pValue);
             if (strcmp(pName, "schedule2") == 0) HeatingScheduleSave(1, pValue);
             if (strcmp(pName, "schedule3") == 0) HeatingScheduleSave(2, pValue);
+            int schedule = *pValue - '0';
+            if (schedule < 1) schedule = 1;
+            if (schedule > 3) schedule = 3;
+            schedule--;
+            if (strcmp(pName, "mon") == 0) HeatingSetMon(schedule);
+            if (strcmp(pName, "tue") == 0) HeatingSetTue(schedule);
+            if (strcmp(pName, "wed") == 0) HeatingSetWed(schedule);
+            if (strcmp(pName, "thu") == 0) HeatingSetThu(schedule);
+            if (strcmp(pName, "fri") == 0) HeatingSetFri(schedule);
+            if (strcmp(pName, "sat") == 0) HeatingSetSat(schedule);
+            if (strcmp(pName, "sun") == 0) HeatingSetSun(schedule);
         }
         HtmlStart(id, HTML_LED);
         return 0;
