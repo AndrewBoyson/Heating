@@ -6,8 +6,9 @@
 #include     "cfg.h"
 #include      "io.h"
 #include "heating.h"
-#include    "html.h"
 #include      "at.h"
+#include "request.h"
+#include  "server.h"
 
 #define SCHEDULE_CHARACTER_LENGTH 30
 
@@ -334,12 +335,12 @@ static int fillSendBuffer(int whatToSend, int chunk)
 {
     switch(whatToSend)
     {
-        case HTML_NOT_FOUND:   return fillNotFound      (chunk);
-        case HTML_BAD_REQUEST: return fillBadRequest    (chunk);
-        case HTML_BAD_METHOD:  return fillBadMethod     (chunk);
-        case HTML_LOG:         return fillLog           (chunk);
-        case HTML_LED:         return fillLed           (chunk);
-        default:               return fillNotImplemented(chunk);
+        case REQUEST_NOT_FOUND:   return fillNotFound      (chunk);
+        case REQUEST_BAD_REQUEST: return fillBadRequest    (chunk);
+        case REQUEST_BAD_METHOD:  return fillBadMethod     (chunk);
+        case REQUEST_LOG:         return fillLog           (chunk);
+        case REQUEST_LED:         return fillLed           (chunk);
+        default:                  return fillNotImplemented(chunk);
     }
 }
 
@@ -362,7 +363,7 @@ void HtmlStart(int id, int whatToSend)
 }
 int HtmlGetNextChunkToSend(int id, int* pLength, char** ppBuffer)
 {
-    if (chunkToSendToId[id] == 0) return HTML_NOTHING_TO_SEND;
+    if (chunkToSendToId[id] == 0) return SERVER_NOTHING_TO_SEND;
     
     int chunkResult = fillSendBuffer(whatToSendToId[id], chunkToSendToId[id]);
     
@@ -373,14 +374,14 @@ int HtmlGetNextChunkToSend(int id, int* pLength, char** ppBuffer)
     {
         case THIS_CHUNK_IS_NOT_FINISHED:
             ; //Don't increment the chunk
-            return HTML_MORE_TO_SEND;
+            return SERVER_MORE_TO_SEND;
         case THIS_CHUNK_IS_FINISHED:
             chunkToSendToId[id] += 1;
-            return HTML_MORE_TO_SEND;
+            return SERVER_MORE_TO_SEND;
         case NO_MORE_CHUNKS:
             chunkToSendToId[id] = 0;
-            return HTML_NO_MORE_TO_SEND;
+            return SERVER_NO_MORE_TO_SEND;
         default:
-            return HTML_ERROR;
+            return SERVER_ERROR;
     }
 }

@@ -1,12 +1,13 @@
-#include    "mbed.h"
-#include     "esp.h"
-#include      "at.h"
-#include     "log.h"
-#include    "wifi.h"
-#include    "html.h"
-#include      "io.h"
-#include "request.h"
-
+#include     "mbed.h"
+#include      "esp.h"
+#include       "at.h"
+#include      "log.h"
+#include     "wifi.h"
+#include     "html.h"
+#include       "io.h"
+#include  "request.h"
+#include   "server.h"
+#include "resource.h"
 
 #define SERVER_PORT 80
 static int startMain()
@@ -41,22 +42,40 @@ static int sendMain()
     static int id = 0;
     int length;
     char* pBuffer;
-    int chunk = HtmlGetNextChunkToSend(id, &length, &pBuffer);
+    int chunk;
+    
+    chunk = HtmlGetNextChunkToSend(id, &length, &pBuffer);
     switch (chunk)
     {
-        case HTML_NOTHING_TO_SEND:
-            id++;
-            if (id >= ESP_ID_COUNT) id = 0;
+        case SERVER_NOTHING_TO_SEND:
             break;
-        case HTML_MORE_TO_SEND:
+        case SERVER_MORE_TO_SEND:
             AtSendData(id, length, pBuffer, NULL);
-            break;
-        case HTML_NO_MORE_TO_SEND:
+            return 0;
+        case SERVER_NO_MORE_TO_SEND:
             AtClose(id, NULL);
-            break;
-        case HTML_ERROR:
+            return 0;
+        case SERVER_ERROR:
             return -1;
     }
+    
+    chunk = ResourceGetNextChunkToSend(id, &length, &pBuffer);
+    switch (chunk)
+    {
+        case SERVER_NOTHING_TO_SEND:
+            break;
+        case SERVER_MORE_TO_SEND:
+            AtSendData(id, length, pBuffer, NULL);
+            return 0;
+        case SERVER_NO_MORE_TO_SEND:
+            AtClose(id, NULL);
+            return 0;
+        case SERVER_ERROR:
+            return -1;
+    }
+    
+    id++;
+    if (id >= ESP_ID_COUNT) id = 0;
     return 0;
 }
 int ServerMain()
@@ -73,5 +92,6 @@ int ServerInit(void) //Make sure this is only called after any other ids are res
 {
     RequestInit();
     HtmlInit();
+    ResourceInit();
     return 0;
 }

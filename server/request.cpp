@@ -1,9 +1,11 @@
-#include    "mbed.h"
-#include    "html.h"
-#include      "io.h"
-#include "heating.h"
-#include     "log.h"
-#include     "esp.h"
+#include     "mbed.h"
+#include     "html.h"
+#include       "io.h"
+#include  "heating.h"
+#include      "log.h"
+#include      "esp.h"
+#include  "request.h"
+#include "resource.h"
 
 #define RECV_BUFFER_SIZE 128
 static char recvbuffer[RECV_BUFFER_SIZE];
@@ -85,13 +87,13 @@ int RequestHandle(int id)
     int r = splitRequest(&pMethod, &pPath, &pQuery);
     if (r)
     {
-        HtmlStart(id, HTML_BAD_REQUEST);
+        HtmlStart(id, REQUEST_BAD_REQUEST);
         return 0;
     }
 
     if (strcmp(pMethod, "GET") != 0)
     {
-        HtmlStart(id, HTML_BAD_METHOD);
+        HtmlStart(id, REQUEST_BAD_METHOD);
         return 0;
     }
     
@@ -127,17 +129,22 @@ int RequestHandle(int id)
             if (strcmp(pName, "sat") == 0) HeatingSetSat(schedule);
             if (strcmp(pName, "sun") == 0) HeatingSetSun(schedule);
         }
-        HtmlStart(id, HTML_LED);
+        HtmlStart(id, REQUEST_LED);
         return 0;
     }
     
     if (strcmp(pPath, "/log") == 0)
     {
-        HtmlStart(id, HTML_LOG);
+        HtmlStart(id, REQUEST_LOG);
+        return 0;
+    }
+    if (strcmp(pPath, "/favicon.ico") == 0)
+    {
+        ResourceStart(id, REQUEST_ICO);
         return 0;
     }
     
-    HtmlStart(id, HTML_NOT_FOUND);
+    HtmlStart(id, REQUEST_NOT_FOUND);
     return 0;
 }
 
