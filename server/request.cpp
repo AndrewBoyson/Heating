@@ -64,20 +64,27 @@ static int splitRequest(char** ppMethod, char** ppPath, char** ppQuery) //return
     
     return 0;
 }
-static int splitQuery(char* p, char** ppName, char** ppValue) //returns 1 if malformed request; 0 if ok
+static char* splitQuery(char* p, char** ppName, char** ppValue) //returns the start of the next name value pair
 {    
     *ppName    = p;                     //Record the start of the name
     *ppValue   = NULL;
 
     while (*p != '=')                   //Loop to an '='
     {
-        if (*p < ' ')    return -1;
-        if (*p >= 0x7f)  return -1;
+        if (*p < ' ')    return 0;
+        if (*p >= 0x7f)  return 0;
         p++;
     }
-    *p = 0;                             //Terminate the name
-    *ppValue = p + 1;                   //Record the start of the value
-    return 0;
+    *p = 0;                             //Terminate the name by replacing the = with a NUL char
+    p++;                                //Move on to the start of the value
+    *ppValue = p;                       //Record the start of the value
+    while (*p != '&')                   //Loop to a '&'
+    {
+        if (*p < ' ')    return 0;
+        if (*p >= 0x7f)  return 0;
+        p++;
+    }
+    return p + 1;
 }
 int RequestHandle(int id)
 {
@@ -99,21 +106,17 @@ int RequestHandle(int id)
     
     if (strcmp(pPath, "/") == 0)
     {
-        if (pQuery)
+        int     ledonoff = false;
+        int heatingonoff = false;
+        int      checked = false;
+        while (pQuery)
         {
             char* pName;
             char* pValue;
-            splitQuery(pQuery, &pName, &pValue);
-            if (strcmp(pName, "led") == 0)
-            {
-                if (strcmp(pValue, "&on=on") == 0) Led1 = 1;
-                else                               Led1 = 0;
-            }
-            if (strcmp(pName, "heating") == 0)
-            {
-                if (strcmp(pValue, "&on=on") == 0) HeatingSetOnOff(1);
-                else                             HeatingSetOnOff(0);
-            }
+            pQuery = splitQuery(pQuery, &pName, &pValue);
+            if (strcmp(pName, "led"      ) == 0) ledonoff     = true;
+            if (strcmp(pName, "heating"  ) == 0) heatingonoff = true;
+            if (strcmp(pName, "on"       ) == 0) checked      = true;
             if (strcmp(pName, "schedule1") == 0) HeatingScheduleSave(0, pValue);
             if (strcmp(pName, "schedule2") == 0) HeatingScheduleSave(1, pValue);
             if (strcmp(pName, "schedule3") == 0) HeatingScheduleSave(2, pValue);
@@ -129,6 +132,8 @@ int RequestHandle(int id)
             if (strcmp(pName, "sat") == 0) HeatingSetSat(schedule);
             if (strcmp(pName, "sun") == 0) HeatingSetSun(schedule);
         }
+        if (ledonoff) Led1 = checked;
+        if (heatingonoff) HeatingSetOnOff(checked);
         HtmlStart(id, REQUEST_LED);
         return 0;
     }

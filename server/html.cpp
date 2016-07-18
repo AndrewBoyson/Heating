@@ -187,10 +187,11 @@ static void addFormCheckInput(char* action, char* label, char* name, int value)
     addChunk(name);
     addChunk("'>\r\n");
     addChunk(label);
-    addChunk(" <input type='checkbox' name='on'");
+    addChunk(" <input type='checkbox' name='on' onCheck='submit();");
     if (value) addChunk(" checked='checked'");
     addChunk(">\r\n");
-    addChunk("<input type='submit' value='Set'><br/>\r\n</form>\r\n");
+    //addChunk("<input type='submit' value='Set'>\r\n");
+    addChunk("</form><br/>\r\n");
 }
 static int fillLed(int chunk)
 {
