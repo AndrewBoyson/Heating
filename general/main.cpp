@@ -6,15 +6,15 @@
 #include     "ntp.h"
 #include     "esp.h"
 #include      "io.h"
+#include    "time.h"
 #include  "server.h"
 #include    "wifi.h"
 #include    "uart.h"
 #include  "1-wire.h"
 #include "ds18b20.h"
+#include "heating.h"
 
 static Timer stopTimer;
-static Timer scanTimer;
-int MainScanUs = 0;
 
 int main()
 {
@@ -34,17 +34,12 @@ int main()
     r =  ServerInit(); //Call this after any connections (ntp) are reserved
     r = OneWireInit();
     r = DS18B20Init();
+    r = HeatingInit();
            
     while (1)
-    {
-        //Establish the scan time
-        int scanUs = scanTimer.read_us();
-        scanTimer.reset();
-        scanTimer.start();
-        if (scanUs > MainScanUs) MainScanUs++;
-        if (scanUs < MainScanUs) MainScanUs--;
-        
+    {        
         //Scan each module
+        r =    TimeMain(); if (r) break;
         r =    WifiMain(); if (r) break;
         r =      AtMain(); if (r) break;
         r =    UartMain(); if (r) break;
@@ -53,6 +48,7 @@ int main()
         r =  ServerMain(); if (r) break;
         r = OneWireMain(); if (r) break;
         r = DS18B20Main(); if (r) break;
+        r = HeatingMain(); if (r) break;
         
         switch (WifiStatus)
         {

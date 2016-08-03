@@ -120,8 +120,3 @@ void RtcSetGenReg(int index, int value)
             break;
     }
 }
-void RtcGetTm(struct tm* ptm)
-{
-    uint32_t t = time(NULL);    
-    TimeToTm(t, ptm);
-}

@@ -5,7 +5,7 @@
 #include   "at.h"
 
 #define TIMEOUT    10
-#define TIMEOUT_OK  2
+#define TIMEOUT_OK 10
 
 enum { WAIT_FOR_COMMAND,
        WAIT_FOR_ESP_READY,

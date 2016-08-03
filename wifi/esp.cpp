@@ -6,7 +6,7 @@
 #include "uart.h"
 
 #define RECV_TIMEOUT_MS 5000
-#define DEBUG false
+#define DEBUG true
 
 //State
 #define LINE_LENGTH 256

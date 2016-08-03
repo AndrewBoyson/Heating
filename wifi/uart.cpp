@@ -3,7 +3,7 @@
 static RawSerial uart(p9, p10); // tx, rx
 
 #define RECV_BUFFER_LENGTH 1024
-#define SEND_BUFFER_LENGTH 1024
+#define SEND_BUFFER_LENGTH 2048
 static char recvbuffer[RECV_BUFFER_LENGTH];
 static char sendbuffer[SEND_BUFFER_LENGTH];
 static char* pRecvPush; //Initialised in init
