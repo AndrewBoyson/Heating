@@ -8,8 +8,10 @@
 #include  "request.h"
 #include   "server.h"
 #include "resource.h"
+#include "response.h"
 
 #define SERVER_PORT 80
+
 static int startMain()
 {
     //Do nothing if a command is already in progress
@@ -40,34 +42,18 @@ static int sendMain()
     
     //Send data one id at a time
     static int id = 0;
-    int length;
-    char* pBuffer;
-    int chunk;
+    int* pLength;
+    const char* pBuffer;
     
-    chunk = HtmlGetNextChunkToSend(id, &length, &pBuffer);
-    switch (chunk)
+    int chunkResult = ResponseGetNextChunkToSend(id, &pLength, &pBuffer);
+    switch (chunkResult)
     {
         case SERVER_NOTHING_TO_SEND:
             break;
-        case SERVER_MORE_TO_SEND:
-            AtSendData(id, length, pBuffer, NULL);
+        case SERVER_SEND_DATA:
+            AtSendData(id, *pLength, pBuffer, NULL);
             return 0;
-        case SERVER_NO_MORE_TO_SEND:
-            AtClose(id, NULL);
-            return 0;
-        case SERVER_ERROR:
-            return -1;
-    }
-    
-    chunk = ResourceGetNextChunkToSend(id, &length, &pBuffer);
-    switch (chunk)
-    {
-        case SERVER_NOTHING_TO_SEND:
-            break;
-        case SERVER_MORE_TO_SEND:
-            AtSendData(id, length, pBuffer, NULL);
-            return 0;
-        case SERVER_NO_MORE_TO_SEND:
+        case SERVER_CLOSE_CONNECTION:
             AtClose(id, NULL);
             return 0;
         case SERVER_ERROR:
@@ -91,7 +77,6 @@ int ServerMain()
 int ServerInit(void) //Make sure this is only called after any other ids are reserved.
 {
     RequestInit();
-    HtmlInit();
-    ResourceInit();
+    ResponseInit();
     return 0;
 }

@@ -1,54 +1,18 @@
-#include    "mbed.h"
-#include     "log.h"
-#include "ds18b20.h"
-#include     "rtc.h"
-#include    "main.h"
-#include     "cfg.h"
-#include      "io.h"
-#include "heating.h"
-#include      "at.h"
-#include "request.h"
-#include  "server.h"
+#include     "mbed.h"
+#include      "log.h"
+#include  "ds18b20.h"
+#include      "rtc.h"
+#include     "time.h"
+#include      "cfg.h"
+#include  "heating.h"
+#include "schedule.h"
+#include       "at.h"
+#include  "request.h"
+#include   "server.h"
+#include "response.h"
 
 #define SCHEDULE_CHARACTER_LENGTH 30
-
-#define SEND_BUFFER_SIZE 256
-static char sendbuffer[SEND_BUFFER_SIZE];
-static int length;
-
-static void addChunkF(char *fmt, ...)
-{
-    //Set up variable arguments
-    va_list argptr;
-    va_start(argptr, fmt);
-        
-    //Fill the buffer
-    int room = SEND_BUFFER_SIZE - length;
-    int sent = vsnprintf(sendbuffer + length, room, fmt, argptr);
-    if (sent > room) sent = room;
-    if (sent < 0) sent = 0;
-    
-    //Finish with variable arguments
-    va_end(argptr);
-    
-    //Return length
-    length += sent;
-    if (length > SEND_BUFFER_SIZE) length = SEND_BUFFER_SIZE;
-}
-
-static void addChunk(char *text)
-{
-    strncpy(sendbuffer + length, text, SEND_BUFFER_SIZE - length);
-    length += strlen(text);
-    if (length > SEND_BUFFER_SIZE) length = SEND_BUFFER_SIZE;
-}
-static void fillChunk(char * text)
-{
-    strncpy(sendbuffer, text, SEND_BUFFER_SIZE);
-    length = strlen(text);
-    if (length > SEND_BUFFER_SIZE) length = SEND_BUFFER_SIZE;
-}
-static void fillLogChunk() //Sets length. If length is less than the buffer size then that was the last chunk to send: that could mean a length of zero.
+static int fillLogChunk() //Returns true if send buffer is full
 {
     static int enumerationStarted = false;
     if (!enumerationStarted)
@@ -56,8 +20,7 @@ static void fillLogChunk() //Sets length. If length is less than the buffer size
         LogEnumerateStart();
         enumerationStarted = true;
     }
-    char* p = sendbuffer;
-    while (p < sendbuffer + SEND_BUFFER_SIZE)
+    while (true)
     {
         int c = LogEnumerate();
         if (c == EOF)
@@ -65,324 +28,234 @@ static void fillLogChunk() //Sets length. If length is less than the buffer size
             enumerationStarted = false;
             break;
         }
-        *p++ = c;
+        if (ResponseAddChar(c)) return true;
     }
-    length = p - sendbuffer;
+    return false;
 }
 static char* header = 
-            "HTTP/1.0 200 OK\r\n"
-            "Content-Type: text/html; charset=ISO-8859-1\r\n"
-            "\r\n"
             "<!DOCTYPE html>\r\n"
-            "<html>\r\n"
+            "<html lang = 'EN_GB'>\r\n"
             "<head>\r\n"
+            "<link rel='icon'       href='/favicon.ico' type='image/x-icon'/>\r\n"
+            "<link rel='stylesheet' href='/styles.css'  type='text/css'    />\r\n"
             "<title>Heating</title>\r\n"
             "</head>\r\n"
-            "<style>\r\n"
-            "* { font-family: Tahoma, Geneva, sans-serif; }\r\n"
-            "</style>\r\n"
-            "<body>\r\n";
-
+            "<body>\r\n"
+            ;
+static void addNavItem(int highlight, char* href, char* title)
+{
+    ResponseAddChunk("<li ");
+    if (highlight) ResponseAddChunk("class='this'");
+    else           ResponseAddChunk("            ");
+    ResponseAddChunk("><a href='");
+    ResponseAddChunk(href);
+    ResponseAddChunk("'>");
+    ResponseAddChunk(title);
+    ResponseAddChunk("</a></li>\r\n");
+}
+static void addNav(int page)
+{
+    ResponseAddChunk("<nav><ul>\r\n");
+    int posn = 0;
+    addNavItem(posn++ == page, "/", "Home");
+    addNavItem(posn++ == page, "/log", "Log");
+    ResponseAddChunk("</ul></nav>\r\n");
+}
 static void addTemperature(int16_t value)
 {
     switch (value)
     {
-        case DS18B20_ERROR_CRC:                     addChunk ("CRC error"                     ); break;
-        case DS18B20_ERROR_NOT_FOUND:               addChunk ("ROM not found"                 ); break;
-        case DS18B20_ERROR_TIMED_OUT:               addChunk ("Timed out"                     ); break;
-        case DS18B20_ERROR_NO_DEVICE_PRESENT:       addChunk ("No device detected after reset"); break;
-        case DS18B20_ERROR_NO_DEVICE_PARTICIPATING: addChunk ("Device removed during search"  ); break;
-        default:                                    addChunkF("%1.1f", value / 16.0           ); break;
+        case DS18B20_ERROR_CRC:                     ResponseAddChunk ("CRC error"                     ); break;
+        case DS18B20_ERROR_NOT_FOUND:               ResponseAddChunk ("ROM not found"                 ); break;
+        case DS18B20_ERROR_TIMED_OUT:               ResponseAddChunk ("Timed out"                     ); break;
+        case DS18B20_ERROR_NO_DEVICE_PRESENT:       ResponseAddChunk ("No device detected after reset"); break;
+        case DS18B20_ERROR_NO_DEVICE_PARTICIPATING: ResponseAddChunk ("Device removed during search"  ); break;
+        default:                                    ResponseAddChunkF("%1.1f", value / 16.0           ); break;
     }
 }
 
-#define THIS_CHUNK_IS_NOT_FINISHED 0
-#define THIS_CHUNK_IS_FINISHED     1
-#define NO_MORE_CHUNKS             2
-
-static int fillNotFound(int chunk)
+int HtmlLog(int chunk)
 {
-    if (chunk == 1)
-    {
-        fillChunk("HTTP/1.0 404 Not Found\r\n\r\n");
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    return NO_MORE_CHUNKS;
-}
-static int fillBadRequest(int chunk)
-{
-    if (chunk == 1)
-    {
-        fillChunk("HTTP/1.0 400 Bad Request\r\n\r\n");
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    return NO_MORE_CHUNKS;
-}
-static int fillBadMethod(int chunk)
-{
-    if (chunk == 1)
-    {
-        fillChunk("HTTP/1.0 405 Method Not Allowed\r\nAllow: GET\r\n\r\n");
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    return NO_MORE_CHUNKS;
-}
-static int fillNotImplemented(int chunk)
-{
-    if (chunk == 1)
-    {
-        fillChunk("HTTP/1.0 501 Not Implemented\r\n\r\n");
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    return NO_MORE_CHUNKS;
-}
-static int fillLog(int chunk)
-{
-    int posn = 0;
+    int posn = -1;
     if (++posn == chunk)
     {
-        fillChunk(header);
-        return THIS_CHUNK_IS_FINISHED;
+        ResponseAddChunk(header);
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        fillChunk("<code><pre>");
-        return THIS_CHUNK_IS_FINISHED;
+        addNav(1);
+        return RESPONSE_SEND_CHUNK;
+    }
+    if (++posn == chunk)
+    {
+        ResponseAddChunk("<code><pre>");
+        return RESPONSE_SEND_CHUNK;
     }
         
     if (++posn == chunk)
     {
-        fillLogChunk();
-        if (length == SEND_BUFFER_SIZE) return THIS_CHUNK_IS_NOT_FINISHED; //Buffer is full so there is more of this chunk to come
-        else                            return THIS_CHUNK_IS_FINISHED;     //Buffer is only part filled so move onto the next chunk
+        int sendBufferFilled = fillLogChunk();
+        if (sendBufferFilled) return RESPONSE_SEND_PART_CHUNK; //Buffer is full so there is more of this chunk to come
+        else                  return RESPONSE_SEND_CHUNK;      //Buffer is only part filled so move onto the next chunk
     }
     if (++posn == chunk)
     {
-        fillChunk(
+        ResponseAddChunk(
             "</pre></code>\r\n"
             "</body>\r\n"
             "</html>\r\n");
-        return THIS_CHUNK_IS_FINISHED;
+        return RESPONSE_SEND_CHUNK;
     }
-    return NO_MORE_CHUNKS;
+    return RESPONSE_NO_MORE_CHUNKS;
 }
-static void addFormTextInput(char* action, char* label, char* name, int size, char* value)
+static void addFormStart(char* action)
 {
-    addChunkF("<br/><form action='%s' method='get'>\r\n", action);
-    addChunkF("%s <input type='text' name='%s' size='%d' value='%s'>\r\n", label, name, size, value);
-    addChunk("<input type='submit' value='Set'><br/>\r\n</form>\r\n");
+    ResponseAddChunkF("<br/><form action='%s' method='get'>\r\n", action);
 }
-static void addFormIntInput(char* action, char* label, char* name, int size, int value)
+static void addFormTextInput(char* label, char* name, int size, char* value)
 {
-    addChunkF("<br/><form action='%s' method='get'>\r\n", action);
-    addChunkF("%s <input type='text' name='%s' size='%d' value='%d'>\r\n", label, name, size, value);
-    addChunk("<input type='submit' value='Set'><br/>\r\n</form>\r\n");
+    ResponseAddChunkF("%s <input type='text' name='%s' size='%d' value='%s'>\r\n", label, name, size, value);
+}
+static void addFormIntInput(char* label, char* name, int size, int value)
+{
+    ResponseAddChunkF("%s <input type='text' name='%s' size='%d' value='%d'>\r\n", label, name, size, value);
+}
+static void addFormEnd()
+{
+    ResponseAddChunk("<input type='submit' value='Set'><br/>\r\n</form>\r\n");
 }
 static void addFormCheckInput(char* action, char* label, char* name, int value)
 {
-    addChunk("<br/><form action='");
-    addChunk(action);
-    addChunk("' method='get'>\r\n");
-    addChunk("<input type='hidden' name='");
-    addChunk(name);
-    addChunk("'>\r\n");
-    addChunk(label);
-    addChunk(" <input type='checkbox' name='on' onCheck='submit();");
-    if (value) addChunk(" checked='checked'");
-    addChunk(">\r\n");
-    //addChunk("<input type='submit' value='Set'>\r\n");
-    addChunk("</form><br/>\r\n");
+    ResponseAddChunk("<br/><form action='");
+    ResponseAddChunk(action);
+    ResponseAddChunk("' method='get'>\r\n");
+    ResponseAddChunk("<input type='hidden' name='");
+    ResponseAddChunk(name);
+    ResponseAddChunk("'>\r\n");
+    ResponseAddChunk(label);
+    ResponseAddChunk(" <input type='checkbox' name='on' onClick='submit();'");
+    if (value) ResponseAddChunk(" checked='checked'");
+    ResponseAddChunk(">\r\n");
+    ResponseAddChunk("</form><br/>\r\n");
 }
-static int fillLed(int chunk)
+static void addTm(struct tm* ptm)
 {
-    int posn = 0;
-    length = 0;
+    ResponseAddChunkF("%d-%02d-%02d ", ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday);
+    switch(ptm->tm_wday)
+    {
+        case  0: ResponseAddChunk("Sun"); break;
+        case  1: ResponseAddChunk("Mon"); break;
+        case  2: ResponseAddChunk("Tue"); break;
+        case  3: ResponseAddChunk("Wed"); break;
+        case  4: ResponseAddChunk("Thu"); break;
+        case  5: ResponseAddChunk("Fri"); break;
+        case  6: ResponseAddChunk("Sat"); break;
+        default: ResponseAddChunk("???"); break;
+    }
+    ResponseAddChunkF(" %02d:%02d:%02d", ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
+    if (ptm->tm_isdst) ResponseAddChunk(" BST");
+    else               ResponseAddChunk(" GMT");
+}
+int HtmlLed(int chunk)
+{
+    int posn = -1;
     if (++posn == chunk)
     {
-        fillChunk(header);
-        return THIS_CHUNK_IS_FINISHED;
+        ResponseAddChunk(header);
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
+        addNav(0);
+        return RESPONSE_SEND_CHUNK;
+    }
+    if (++posn == chunk)
+    {
+        time_t now = time(NULL);
         struct tm tm;
-        RtcGetTm(&tm);
-        addChunkF("Time: %d-%02d-%02d ", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
-        switch(tm.tm_wday)
-        {
-            case  0: addChunk("Sun"); break;
-            case  1: addChunk("Mon"); break;
-            case  2: addChunk("Tue"); break;
-            case  3: addChunk("Wed"); break;
-            case  4: addChunk("Thu"); break;
-            case  5: addChunk("Fri"); break;
-            case  6: addChunk("Sat"); break;
-            default: addChunk("???"); break;
-        }
-        addChunkF(" %02d:%02d:%02d UTC", tm.tm_hour, tm.tm_min, tm.tm_sec);
-        addChunk ("<br/><br/>\r\n");
-        addChunkF("Scan &micro;s: %d<br/><br/>\r\n", MainScanUs);
-        return THIS_CHUNK_IS_FINISHED;
+        TimeToTmLocal(now, &tm);
+        ResponseAddChunk ("Time: ");
+        addTm(&tm);
+        ResponseAddChunk ("<br/><br/>\r\n");
+        
+        ResponseAddChunkF("Scan &micro;s: %d<br/><br/>\r\n", TimeScanUs);
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        addChunk ("Devices:<br/>\r\n");
+        ResponseAddChunk ("Devices:<br/>\r\n");
         for (int j = 0; j < DS18B20DeviceCount; j++)
         {
-            addChunkF("%d - ", j);
-            for (int i = 0; i < 8; i++) addChunkF(" %02X", DS18B20DeviceList[j*8 + i]);
-            addChunk(" - ");
+            ResponseAddChunkF("%d - ", j);
+            for (int i = 0; i < 8; i++) ResponseAddChunkF(" %02X", DS18B20DeviceList[j*8 + i]);
+            ResponseAddChunk(" - ");
             addTemperature(DS18B20Value[j]);
-            addChunk ("<br/>\r\n");
+            ResponseAddChunk ("<br/>\r\n");
         }
-        addChunk ("<br/>\r\n");
-        return THIS_CHUNK_IS_FINISHED;
+        ResponseAddChunk ("<br/>\r\n");
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         int16_t temp;
         
         temp = DS18B20ValueFromRom(CfgTankRom);
-        addChunk ("Tank  temperature: ");
+        ResponseAddChunk ("Tank  temperature: ");
         addTemperature(temp);
-        addChunk ("<br/>\r\n");
+        ResponseAddChunk ("<br/>\r\n");
         
         temp = DS18B20ValueFromRom(CfgInletRom);
-        addChunk ("Inlet temperature: ");
+        ResponseAddChunk ("Inlet temperature: ");
         addTemperature(temp);
-        addChunk ("<br/><br/>\r\n");
-        return THIS_CHUNK_IS_FINISHED;
+        ResponseAddChunk ("<br/><br/>\r\n");
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        addChunkF("Battery voltage: %1.2f<br/><br/>\r\n", IoVbat());
-        return THIS_CHUNK_IS_FINISHED;
+        addFormCheckInput("/", "Override", "override", ScheduleOverride);
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        addFormCheckInput("/", "Led", "led", Led1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormCheckInput("/", "Heating", "heating", HeatingGetOnOff());
-        return THIS_CHUNK_IS_FINISHED;
+        addFormCheckInput("/", "Auto", "auto", ScheduleGetAuto());
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         char value[SCHEDULE_CHARACTER_LENGTH];
-        HeatingScheduleRead(0, SCHEDULE_CHARACTER_LENGTH, value);
-        addFormTextInput("/", "Schedule 1", "schedule1", SCHEDULE_CHARACTER_LENGTH, value);
-        return THIS_CHUNK_IS_FINISHED;
+        addFormStart("/");
+        ScheduleRead(0, SCHEDULE_CHARACTER_LENGTH, value);
+        addFormTextInput("Schedule 1", "schedule1", SCHEDULE_CHARACTER_LENGTH, value);
+        ResponseAddChunk ("<br/>\r\n");
+        ScheduleRead(1, SCHEDULE_CHARACTER_LENGTH, value);
+        addFormTextInput("Schedule 2", "schedule2", SCHEDULE_CHARACTER_LENGTH, value);
+        ResponseAddChunk ("<br/>\r\n");
+        ScheduleRead(2, SCHEDULE_CHARACTER_LENGTH, value);
+        addFormTextInput("Schedule 3", "schedule3", SCHEDULE_CHARACTER_LENGTH, value);
+        ResponseAddChunk ("<br/>\r\n");
+        addFormEnd();
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        char value[SCHEDULE_CHARACTER_LENGTH];
-        HeatingScheduleRead(1, SCHEDULE_CHARACTER_LENGTH, value);
-        addFormTextInput("/", "Schedule 2", "schedule2", SCHEDULE_CHARACTER_LENGTH, value);
-        return THIS_CHUNK_IS_FINISHED;
+        addFormStart("/");
+        addFormIntInput("Mon", "mon", 1, ScheduleGetMon()+1);
+        addFormIntInput("Tue", "tue", 1, ScheduleGetTue()+1);
+        addFormIntInput("Wed", "wed", 1, ScheduleGetWed()+1);
+        addFormIntInput("Thu", "thu", 1, ScheduleGetThu()+1);
+        addFormIntInput("Fri", "fri", 1, ScheduleGetFri()+1);
+        addFormIntInput("Sat", "sat", 1, ScheduleGetSat()+1);
+        addFormIntInput("Sun", "sun", 1, ScheduleGetSun()+1);
+        addFormEnd();
+        return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        char value[SCHEDULE_CHARACTER_LENGTH];
-        HeatingScheduleRead(2, SCHEDULE_CHARACTER_LENGTH, value);
-        addFormTextInput("/", "Schedule 3", "schedule3", SCHEDULE_CHARACTER_LENGTH, value);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormIntInput("/", "Mon", "mon", 1, HeatingGetMon()+1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormIntInput("/", "Tue", "tue", 1, HeatingGetTue()+1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormIntInput("/", "Wed", "wed", 1, HeatingGetWed()+1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormIntInput("/", "Thu", "thu", 1, HeatingGetThu()+1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormIntInput("/", "Fri", "fri", 1, HeatingGetFri()+1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormIntInput("/", "Sat", "sat", 1, HeatingGetSat()+1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        addFormIntInput("/", "Sun", "sun", 1, HeatingGetSun()+1);
-        return THIS_CHUNK_IS_FINISHED;
-    }
-    if (++posn == chunk)
-    {
-        fillChunk(
+        ResponseAddChunk(
         "</body>\r\n"
         "</html>\r\n");
-        return THIS_CHUNK_IS_FINISHED;
+        return RESPONSE_SEND_CHUNK;
     }
-    return NO_MORE_CHUNKS;
-}
-static int fillSendBuffer(int whatToSend, int chunk)
-{
-    switch(whatToSend)
-    {
-        case REQUEST_NOT_FOUND:   return fillNotFound      (chunk);
-        case REQUEST_BAD_REQUEST: return fillBadRequest    (chunk);
-        case REQUEST_BAD_METHOD:  return fillBadMethod     (chunk);
-        case REQUEST_LOG:         return fillLog           (chunk);
-        case REQUEST_LED:         return fillLed           (chunk);
-        default:                  return fillNotImplemented(chunk);
-    }
-}
-
-static int  whatToSendToId[4];
-static int chunkToSendToId[4]; //0 == do nothing
-
-int HtmlInit()
-{
-    for (int id = 0; id < 4; id++)
-    {
-         whatToSendToId[id] = 0;
-        chunkToSendToId[id] = 0;
-    }
-    return 0;
-}
-void HtmlStart(int id, int whatToSend)
-{
-     whatToSendToId[id] = whatToSend;
-    chunkToSendToId[id] = 1;           //Set up the next line to send to be the first
-}
-int HtmlGetNextChunkToSend(int id, int* pLength, char** ppBuffer)
-{
-    if (chunkToSendToId[id] == 0) return SERVER_NOTHING_TO_SEND;
-    
-    int chunkResult = fillSendBuffer(whatToSendToId[id], chunkToSendToId[id]);
-    
-    *pLength = length;
-    *ppBuffer = sendbuffer;    
-    
-    switch (chunkResult)
-    {
-        case THIS_CHUNK_IS_NOT_FINISHED:
-            ; //Don't increment the chunk
-            return SERVER_MORE_TO_SEND;
-        case THIS_CHUNK_IS_FINISHED:
-            chunkToSendToId[id] += 1;
-            return SERVER_MORE_TO_SEND;
-        case NO_MORE_CHUNKS:
-            chunkToSendToId[id] = 0;
-            return SERVER_NO_MORE_TO_SEND;
-        default:
-            return SERVER_ERROR;
-    }
+    return RESPONSE_NO_MORE_CHUNKS;
 }
