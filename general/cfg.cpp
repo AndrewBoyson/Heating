@@ -15,7 +15,8 @@ int    CfgClockOffsetMs;
 int    CfgClockCalibration;
 
 char   CfgTankRom[8];
-char   CfgInletRom[8];
+char   CfgTankCoilInRom[8];
+char   CfgTankCoilOutRom[8];
 
 static void saveString(char *value, char  **dest) {
     *dest = (char*)realloc(*dest, strlen(value) + 1); //strlen does not include the null so add 1
@@ -46,16 +47,17 @@ static void handleLine(int n, int v, char *name, char *value)
 {
     rtrim(n, name);
     rtrim(v, value);
-    if (strcmp(name, "baud"                    ) == 0) saveInt   (value, &CfgBaud);
-    if (strcmp(name, "ssid"                    ) == 0) saveString(value, &CfgSsid);
-    if (strcmp(name, "password"                ) == 0) saveString(value, &CfgPassword);
-    if (strcmp(name, "ntp ip"                  ) == 0) saveString(value, &CfgNtpIp);
-    if (strcmp(name, "clock set interval"      ) == 0) saveInt   (value, &CfgClockSetInterval);
-    if (strcmp(name, "clock set retry interval") == 0) saveInt   (value, &CfgClockSetRetryInterval);
-    if (strcmp(name, "clock offset ms"         ) == 0) saveInt   (value, &CfgClockOffsetMs);
-    if (strcmp(name, "clock calibration"       ) == 0) saveInt   (value, &CfgClockCalibration);
-    if (strcmp(name, "tank"                    ) == 0) saveRom   (value,  CfgTankRom);
-    if (strcmp(name, "inlet"                   ) == 0) saveRom   (value,  CfgInletRom);
+    if (strcmp(name, "baud"                       ) == 0) saveInt   (value, &CfgBaud);
+    if (strcmp(name, "ssid"                       ) == 0) saveString(value, &CfgSsid);
+    if (strcmp(name, "password"                   ) == 0) saveString(value, &CfgPassword);
+    if (strcmp(name, "ntp ip"                     ) == 0) saveString(value, &CfgNtpIp);
+    if (strcmp(name, "clock set interval"         ) == 0) saveInt   (value, &CfgClockSetInterval);
+    if (strcmp(name, "clock set retry interval"   ) == 0) saveInt   (value, &CfgClockSetRetryInterval);
+    if (strcmp(name, "clock offset ms"            ) == 0) saveInt   (value, &CfgClockOffsetMs);
+    if (strcmp(name, "clock calibration"          ) == 0) saveInt   (value, &CfgClockCalibration);
+    if (strcmp(name, "tank"                       ) == 0) saveRom   (value,  CfgTankRom);
+    if (strcmp(name, "tank coil in"               ) == 0) saveRom   (value,  CfgTankCoilInRom);
+    if (strcmp(name, "tank coil out"              ) == 0) saveRom   (value,  CfgTankCoilOutRom);
 }
 static void resetValues(void)
 {
@@ -68,8 +70,9 @@ static void resetValues(void)
                        CfgClockSetRetryInterval = 0;
                        CfgClockOffsetMs         = 0;
                        CfgClockCalibration      = 0;
-                       memset(CfgTankRom,  0, 8);
-                       memset(CfgInletRom, 0, 8);
+                       memset(CfgTankRom,        0, 8);
+                       memset(CfgTankCoilInRom,  0, 8);
+                       memset(CfgTankCoilOutRom, 0, 8);
 }
 int CfgInit()   {
 

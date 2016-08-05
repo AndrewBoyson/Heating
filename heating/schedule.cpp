@@ -1,14 +1,12 @@
-#include "mbed.h"
-#include "time.h"
-#include  "rtc.h"
-#include   "io.h"
-#include  "log.h"
-
-#define REG_COUNT 5
+#include     "mbed.h"
+#include     "time.h"
+#include "settings.h"
+#include       "io.h"
+#include      "log.h"
 
 static union
 {
-    int GenRegs[REG_COUNT];
+    int GenRegs[SETTINGS_SCHEDULE_REG_COUNT];
     __packed struct
     {
         unsigned Auto    :  1;
@@ -59,61 +57,84 @@ static union
         
         unsigned         :  1;
     } ;
-} schedules;
+} schedulesUnion;
 
-static void saveSchedules()
+bool ScheduleAuto;
+
+int ScheduleDay[7];
+
+bool ScheduleCycleOn[3][4];
+int  ScheduleCycleMinutes[3][4];
+
+void ScheduleSaveAll()
 {
-    for (int i = 0; i < REG_COUNT; i++) RtcSetGenReg(i, schedules.GenRegs[i]);
+    schedulesUnion.Auto = ScheduleAuto;
+        
+    schedulesUnion.Mon = ScheduleDay[1];
+    schedulesUnion.Tue = ScheduleDay[2];
+    schedulesUnion.Wed = ScheduleDay[3];
+    schedulesUnion.Thu = ScheduleDay[4];
+    schedulesUnion.Fri = ScheduleDay[5];
+    schedulesUnion.Sat = ScheduleDay[6];
+    schedulesUnion.Sun = ScheduleDay[0];
+    
+    schedulesUnion.S0C0On = ScheduleCycleOn[0][0]; schedulesUnion.S0C0Min = ScheduleCycleMinutes[0][0];
+    schedulesUnion.S0C1On = ScheduleCycleOn[0][1]; schedulesUnion.S0C1Min = ScheduleCycleMinutes[0][1];
+    schedulesUnion.S0C2On = ScheduleCycleOn[0][2]; schedulesUnion.S0C2Min = ScheduleCycleMinutes[0][2];
+    schedulesUnion.S0C3On = ScheduleCycleOn[0][3]; schedulesUnion.S0C3Min = ScheduleCycleMinutes[0][3];
+
+    schedulesUnion.S1C0On = ScheduleCycleOn[1][0]; schedulesUnion.S1C0Min = ScheduleCycleMinutes[1][0];
+    schedulesUnion.S1C1On = ScheduleCycleOn[1][1]; schedulesUnion.S1C1Min = ScheduleCycleMinutes[1][1];
+    schedulesUnion.S1C2On = ScheduleCycleOn[1][2]; schedulesUnion.S1C2Min = ScheduleCycleMinutes[1][2];
+    schedulesUnion.S1C3On = ScheduleCycleOn[1][3]; schedulesUnion.S1C3Min = ScheduleCycleMinutes[1][3];
+
+    schedulesUnion.S2C0On = ScheduleCycleOn[2][0]; schedulesUnion.S2C0Min = ScheduleCycleMinutes[2][0];
+    schedulesUnion.S2C1On = ScheduleCycleOn[2][1]; schedulesUnion.S2C1Min = ScheduleCycleMinutes[2][1];
+    schedulesUnion.S2C2On = ScheduleCycleOn[2][2]; schedulesUnion.S2C2Min = ScheduleCycleMinutes[2][2];
+    schedulesUnion.S2C3On = ScheduleCycleOn[2][3]; schedulesUnion.S2C3Min = ScheduleCycleMinutes[2][3];
+    
+    for (int i = 0; i < SETTINGS_SCHEDULE_REG_COUNT; i++) SettingsSetScheduleReg(i, schedulesUnion.GenRegs[i]);
 }
-static void loadSchedules()
+void ScheduleLoadAll()
 {
-    for (int i = 0; i < REG_COUNT; i++) schedules.GenRegs[i] = RtcGetGenReg(i);
-}
-static void setCycle(int schedule, int cycle, bool on, unsigned minutes)
-{    
-    if (schedule == 0 && cycle == 0) { schedules.S0C0On = on; schedules.S0C0Min = minutes; }
-    if (schedule == 0 && cycle == 1) { schedules.S0C1On = on; schedules.S0C1Min = minutes; }
-    if (schedule == 0 && cycle == 2) { schedules.S0C2On = on; schedules.S0C2Min = minutes; }
-    if (schedule == 0 && cycle == 3) { schedules.S0C3On = on; schedules.S0C3Min = minutes; }
+    for (int i = 0; i < SETTINGS_SCHEDULE_REG_COUNT; i++) schedulesUnion.GenRegs[i] = SettingsGetScheduleReg(i);
+    
+    ScheduleAuto = schedulesUnion.Auto;
+        
+    ScheduleDay[1] = schedulesUnion.Mon;
+    ScheduleDay[2] = schedulesUnion.Tue;
+    ScheduleDay[3] = schedulesUnion.Wed;
+    ScheduleDay[4] = schedulesUnion.Thu;
+    ScheduleDay[5] = schedulesUnion.Fri;
+    ScheduleDay[6] = schedulesUnion.Sat;
+    ScheduleDay[0] = schedulesUnion.Sun;
+    
+    ScheduleCycleOn[0][0] = schedulesUnion.S0C0On; ScheduleCycleMinutes[0][0] = schedulesUnion.S0C0Min;
+    ScheduleCycleOn[0][1] = schedulesUnion.S0C1On; ScheduleCycleMinutes[0][1] = schedulesUnion.S0C1Min;
+    ScheduleCycleOn[0][2] = schedulesUnion.S0C2On; ScheduleCycleMinutes[0][2] = schedulesUnion.S0C2Min;
+    ScheduleCycleOn[0][3] = schedulesUnion.S0C3On; ScheduleCycleMinutes[0][3] = schedulesUnion.S0C3Min;
 
-    if (schedule == 1 && cycle == 0) { schedules.S1C0On = on; schedules.S1C0Min = minutes; }
-    if (schedule == 1 && cycle == 1) { schedules.S1C1On = on; schedules.S1C1Min = minutes; }
-    if (schedule == 1 && cycle == 2) { schedules.S1C2On = on; schedules.S1C2Min = minutes; }
-    if (schedule == 1 && cycle == 3) { schedules.S1C3On = on; schedules.S1C3Min = minutes; }
+    ScheduleCycleOn[1][0] = schedulesUnion.S1C0On; ScheduleCycleMinutes[1][0] = schedulesUnion.S1C0Min;
+    ScheduleCycleOn[1][1] = schedulesUnion.S1C1On; ScheduleCycleMinutes[1][1] = schedulesUnion.S1C1Min;
+    ScheduleCycleOn[1][2] = schedulesUnion.S1C2On; ScheduleCycleMinutes[1][2] = schedulesUnion.S1C2Min;
+    ScheduleCycleOn[1][3] = schedulesUnion.S1C3On; ScheduleCycleMinutes[1][3] = schedulesUnion.S1C3Min;
 
-    if (schedule == 2 && cycle == 0) { schedules.S2C0On = on; schedules.S2C0Min = minutes; }
-    if (schedule == 2 && cycle == 1) { schedules.S2C1On = on; schedules.S2C1Min = minutes; }
-    if (schedule == 2 && cycle == 2) { schedules.S2C2On = on; schedules.S2C2Min = minutes; }
-    if (schedule == 2 && cycle == 3) { schedules.S2C3On = on; schedules.S2C3Min = minutes; }
-}
-static void getCycle(int schedule, int cycle, bool* pon, unsigned* pminutes)
-{
-    if (schedule == 0 && cycle == 0) { *pon = schedules.S0C0On; *pminutes = schedules.S0C0Min; }
-    if (schedule == 0 && cycle == 1) { *pon = schedules.S0C1On; *pminutes = schedules.S0C1Min; }
-    if (schedule == 0 && cycle == 2) { *pon = schedules.S0C2On; *pminutes = schedules.S0C2Min; }
-    if (schedule == 0 && cycle == 3) { *pon = schedules.S0C3On; *pminutes = schedules.S0C3Min; }
-
-    if (schedule == 1 && cycle == 0) { *pon = schedules.S1C0On; *pminutes = schedules.S1C0Min; }
-    if (schedule == 1 && cycle == 1) { *pon = schedules.S1C1On; *pminutes = schedules.S1C1Min; }
-    if (schedule == 1 && cycle == 2) { *pon = schedules.S1C2On; *pminutes = schedules.S1C2Min; }
-    if (schedule == 1 && cycle == 3) { *pon = schedules.S1C3On; *pminutes = schedules.S1C3Min; }
-
-    if (schedule == 2 && cycle == 0) { *pon = schedules.S2C0On; *pminutes = schedules.S2C0Min; }
-    if (schedule == 2 && cycle == 1) { *pon = schedules.S2C1On; *pminutes = schedules.S2C1Min; }
-    if (schedule == 2 && cycle == 2) { *pon = schedules.S2C2On; *pminutes = schedules.S2C2Min; }
-    if (schedule == 2 && cycle == 3) { *pon = schedules.S2C3On; *pminutes = schedules.S2C3Min; }
+    ScheduleCycleOn[2][0] = schedulesUnion.S2C0On; ScheduleCycleMinutes[2][0] = schedulesUnion.S2C0Min;
+    ScheduleCycleOn[2][1] = schedulesUnion.S2C1On; ScheduleCycleMinutes[2][1] = schedulesUnion.S2C1Min;
+    ScheduleCycleOn[2][2] = schedulesUnion.S2C2On; ScheduleCycleMinutes[2][2] = schedulesUnion.S2C2Min;
+    ScheduleCycleOn[2][3] = schedulesUnion.S2C3On; ScheduleCycleMinutes[2][3] = schedulesUnion.S2C3Min;
+    
 }
 
 //[*|-][00-23][00-59];
-static int toStringSchedule(int schedule, int buflen, char* buffer)
+void ScheduleToString(int schedule, int buflen, char* buffer)
 {
-    if (buflen < 25) return -1;
+    if (buflen < 25) return;
     char* p = buffer;
     for (int cycle = 0; cycle < 4; cycle++)
     {
-        bool on;
-        unsigned minutes;
-        getCycle(schedule, cycle, &on, &minutes);
+        bool     on      = ScheduleCycleOn[schedule][cycle];
+        unsigned minutes = ScheduleCycleMinutes[schedule][cycle];
         unsigned hours = minutes / 60;
         if (hours > 23) continue;
         unsigned tensOfHours = hours / 10;
@@ -129,15 +150,22 @@ static int toStringSchedule(int schedule, int buflen, char* buffer)
         *p++ = minutes + '0';
     }
     *p = 0;
-    return 0;
 }
 static void handleCycleDelim(int schedule, int cycle, bool on, unsigned hours, unsigned mins)
 {
     unsigned total = hours * 60 + mins;
-    if (total < 1440) setCycle(schedule, cycle, on, total);
-    else              setCycle(schedule, cycle, 0, 1440);
+    if (total < 1440)
+    {
+        ScheduleCycleOn[schedule][cycle] = on;
+        ScheduleCycleMinutes[schedule][cycle] = total;
+    }
+    else
+    {
+        ScheduleCycleOn[schedule][cycle] = false;
+        ScheduleCycleMinutes[schedule][cycle] = 1440;
+    }
 }
-static void parseSchedule(int schedule, char* text)
+void ScheduleParse(int schedule, char* text)
 {
     int cycle = 0;
     bool on = false;
@@ -205,88 +233,6 @@ static void parseSchedule(int schedule, char* text)
     }
 }
 
-void ScheduleSave(int schedule, char* text)
-{
-    parseSchedule(schedule, text);
-    saveSchedules();
-}
-int ScheduleRead(int schedule, int bufSize, char* text)
-{
-    return toStringSchedule(schedule, bufSize, text);
-}
-bool  ScheduleGetAuto()
-{
-    return schedules.Auto;
-}
-void ScheduleSetAuto(bool value)
-{
-    schedules.Auto = value;
-    saveSchedules();
-}
-
-int  ScheduleGetMon()
-{
-    return schedules.Mon;
-}
-void ScheduleSetMon(int value)
-{
-    schedules.Mon = value;
-    saveSchedules();
-}
-int  ScheduleGetTue()
-{
-    return schedules.Tue;
-}
-void ScheduleSetTue(int value)
-{
-    schedules.Tue = value;
-    saveSchedules();
-}
-int  ScheduleGetWed()
-{
-    return schedules.Wed;
-}
-void ScheduleSetWed(int value)
-{
-    schedules.Wed = value;
-    saveSchedules();
-}
-int  ScheduleGetThu()
-{
-    return schedules.Thu;
-}
-void ScheduleSetThu(int value)
-{
-    schedules.Thu = value;
-    saveSchedules();
-}
-int  ScheduleGetFri()
-{
-    return schedules.Fri;
-}
-void ScheduleSetFri(int value)
-{
-    schedules.Fri = value;
-    saveSchedules();
-}
-int  ScheduleGetSat()
-{
-    return schedules.Sat;
-}
-void ScheduleSetSat(int value)
-{
-    schedules.Sat = value;
-    saveSchedules();
-}
-int  ScheduleGetSun()
-{
-    return schedules.Sun;
-}
-void ScheduleSetSun(int value)
-{
-    schedules.Sun = value;
-    saveSchedules();
-}
 
 
 static bool checkScheduleBeforeOverride()
@@ -297,25 +243,13 @@ static bool checkScheduleBeforeOverride()
     
     int dayOfWeek = tm.tm_wday;
     
-    int schedule;
-    
-    switch(dayOfWeek)
-    {
-        case 0: schedule = schedules.Sun; break;
-        case 1: schedule = schedules.Mon; break;
-        case 2: schedule = schedules.Tue; break;
-        case 3: schedule = schedules.Wed; break;
-        case 4: schedule = schedules.Thu; break;
-        case 5: schedule = schedules.Fri; break;
-        case 6: schedule = schedules.Sat; break;
-    }
+    int schedule = ScheduleDay[dayOfWeek];
     
     bool calling = false;
     for (int cycle = 0; cycle < 4; cycle++)
     {
-        bool on;
-        unsigned minutes;
-        getCycle(schedule, cycle, &on, &minutes);
+        bool     on      = ScheduleCycleOn[schedule][cycle];
+        unsigned minutes = ScheduleCycleMinutes[schedule][cycle];
         if (minutes >= 1440) continue;
         int minutesNow = tm.tm_hour * 60 + tm.tm_min;
         if (minutes <= minutesNow) calling = on;
@@ -337,7 +271,7 @@ bool ScheduleIsCalling;
 
 int ScheduleMain()
 {
-    if (schedules.Auto)
+    if (ScheduleAuto)
     {
         int scheduleBeforeOverride = checkScheduleBeforeOverride();
         
@@ -359,7 +293,7 @@ int ScheduleMain()
 int ScheduleInit()
 {
     ScheduleOverride = false;
-    loadSchedules();
+    ScheduleLoadAll();
     
     return 0;
 }

@@ -92,31 +92,3 @@ void     RtcSet(uint64_t t)
     NVIC_ClearPendingIRQ(RTC_IRQn);                                 //Clear any pending fractional part resets generated before the reset 
     NVIC_EnableIRQ(RTC_IRQn);                                       //Allow the fractional part to be reset at the end of a second
 }
-int RtcGetGenReg(int index)
-{
-    switch (index)
-    {
-        case 0: return LPC_RTC->GPREG0;
-        case 1: return LPC_RTC->GPREG1;
-        case 2: return LPC_RTC->GPREG2;
-        case 3: return LPC_RTC->GPREG3;
-        case 4: return LPC_RTC->GPREG4;
-        default:
-            LogF("Unknown RtcGetGenReg index %d\r\n", index);
-            return 0;
-    }
-}
-void RtcSetGenReg(int index, int value)
-{
-    switch (index)
-    {
-        case 0: LPC_RTC->GPREG0 = value; break;
-        case 1: LPC_RTC->GPREG1 = value; break;
-        case 2: LPC_RTC->GPREG2 = value; break;
-        case 3: LPC_RTC->GPREG3 = value; break;
-        case 4: LPC_RTC->GPREG4 = value; break;
-        default:
-            LogF("Unknown RtcSetGenReg index %d\r\n", index);
-            break;
-    }
-}

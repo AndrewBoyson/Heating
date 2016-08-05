@@ -10,6 +10,8 @@
 #include  "request.h"
 #include   "server.h"
 #include "response.h"
+#include  "heating.h"
+#include "settings.h"
 
 #define SCHEDULE_CHARACTER_LENGTH 30
 static int fillLogChunk() //Returns true if send buffer is full
@@ -197,7 +199,7 @@ int HtmlLed(int chunk)
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
-    {
+    {        
         int16_t temp;
         
         temp = DS18B20ValueFromRom(CfgTankRom);
@@ -205,11 +207,31 @@ int HtmlLed(int chunk)
         addTemperature(temp);
         ResponseAddChunk ("<br/>\r\n");
         
-        temp = DS18B20ValueFromRom(CfgInletRom);
-        ResponseAddChunk ("Inlet temperature: ");
+        temp = DS18B20ValueFromRom(CfgTankCoilInRom);
+        ResponseAddChunk ("Tank coil inlet temperature: ");
+        addTemperature(temp);
+        ResponseAddChunk ("<br/>\r\n");
+        
+        temp = DS18B20ValueFromRom(CfgTankCoilOutRom);
+        ResponseAddChunk ("Tank coil outlet temperature: ");
         addTemperature(temp);
         ResponseAddChunk ("<br/><br/>\r\n");
+        
+        ResponseAddChunk ("Radiator pump ");
+        if (HeatingRadiatorPump) ResponseAddChunk("running");
+        else                     ResponseAddChunk("not running");
+        ResponseAddChunk ("<br/>\r\n");
+        ResponseAddChunk ("Boiler ");
+        if (HeatingBoilerCall)   ResponseAddChunk("called");
+        else                     ResponseAddChunk("not called");
+        ResponseAddChunk ("<br/>\r\n");
+        ResponseAddChunk ("Boiler pump ");
+        if (HeatingBoilerPump)   ResponseAddChunk("running");
+        else                     ResponseAddChunk("not running");
+        ResponseAddChunk ("<br/><br/>\r\n");
+        
         return RESPONSE_SEND_CHUNK;
+
     }
     if (++posn == chunk)
     {
@@ -218,20 +240,32 @@ int HtmlLed(int chunk)
     }
     if (++posn == chunk)
     {
-        addFormCheckInput("/", "Auto", "auto", ScheduleGetAuto());
+        addFormCheckInput("/", "Auto", "auto", ScheduleAuto);
+        return RESPONSE_SEND_CHUNK;
+    }
+    if (++posn == chunk)
+    {
+        addFormStart("/");
+        addFormIntInput("Tank set point",             "tanksetpoint",   2, SettingsGetTankSetPoint());
+        ResponseAddChunk ("<br/>\r\n");
+        addFormIntInput("Tank hysteresis",            "tankhysteresis", 2, SettingsGetTankHysteresis());
+        ResponseAddChunk ("<br/>\r\n");
+        addFormIntInput("Boiler minimum run on loss", "runonloss",      2, SettingsGetTankMinHoldOnLoss());
+        ResponseAddChunk ("<br/>\r\n");
+        addFormEnd();
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         char value[SCHEDULE_CHARACTER_LENGTH];
         addFormStart("/");
-        ScheduleRead(0, SCHEDULE_CHARACTER_LENGTH, value);
+        ScheduleToString(0, SCHEDULE_CHARACTER_LENGTH, value);
         addFormTextInput("Schedule 1", "schedule1", SCHEDULE_CHARACTER_LENGTH, value);
         ResponseAddChunk ("<br/>\r\n");
-        ScheduleRead(1, SCHEDULE_CHARACTER_LENGTH, value);
+        ScheduleToString(1, SCHEDULE_CHARACTER_LENGTH, value);
         addFormTextInput("Schedule 2", "schedule2", SCHEDULE_CHARACTER_LENGTH, value);
         ResponseAddChunk ("<br/>\r\n");
-        ScheduleRead(2, SCHEDULE_CHARACTER_LENGTH, value);
+        ScheduleToString(2, SCHEDULE_CHARACTER_LENGTH, value);
         addFormTextInput("Schedule 3", "schedule3", SCHEDULE_CHARACTER_LENGTH, value);
         ResponseAddChunk ("<br/>\r\n");
         addFormEnd();
@@ -240,13 +274,13 @@ int HtmlLed(int chunk)
     if (++posn == chunk)
     {
         addFormStart("/");
-        addFormIntInput("Mon", "mon", 1, ScheduleGetMon()+1);
-        addFormIntInput("Tue", "tue", 1, ScheduleGetTue()+1);
-        addFormIntInput("Wed", "wed", 1, ScheduleGetWed()+1);
-        addFormIntInput("Thu", "thu", 1, ScheduleGetThu()+1);
-        addFormIntInput("Fri", "fri", 1, ScheduleGetFri()+1);
-        addFormIntInput("Sat", "sat", 1, ScheduleGetSat()+1);
-        addFormIntInput("Sun", "sun", 1, ScheduleGetSun()+1);
+        addFormIntInput("Mon", "mon", 1, ScheduleDay[1] + 1);
+        addFormIntInput("Tue", "tue", 1, ScheduleDay[2] + 1);
+        addFormIntInput("Wed", "wed", 1, ScheduleDay[3] + 1);
+        addFormIntInput("Thu", "thu", 1, ScheduleDay[4] + 1);
+        addFormIntInput("Fri", "fri", 1, ScheduleDay[5] + 1);
+        addFormIntInput("Sat", "sat", 1, ScheduleDay[6] + 1);
+        addFormIntInput("Sun", "sun", 1, ScheduleDay[0] + 1);
         addFormEnd();
         return RESPONSE_SEND_CHUNK;
     }

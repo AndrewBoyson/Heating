@@ -6,7 +6,9 @@ extern int   CfgClockSetInterval;
 extern int   CfgClockSetRetryInterval;
 extern int   CfgClockOffsetMs;
 extern int   CfgClockCalibration;
+
 extern char  CfgTankRom[];
-extern char  CfgInletRom[];
+extern char  CfgTankCoilInRom[];
+extern char  CfgTankCoilOutRom[];
 
 extern int   CfgInit();
