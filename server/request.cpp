@@ -7,6 +7,7 @@
 #include  "request.h"
 #include "response.h"
 #include   "server.h"
+#include "settings.h"
 
 #define RECV_BUFFER_SIZE 512
 static char recvbuffer[RECV_BUFFER_SIZE];
@@ -145,6 +146,7 @@ int RequestHandle(int id)
     
     if (strcmp(pPath, "/") == 0)
     {
+        bool   needToSave = !!pQuery;
         int overrideonoff = false;
         int     autoonoff = false;
         int       checked = false;
@@ -153,26 +155,38 @@ int RequestHandle(int id)
             char* pName;
             char* pValue;
             pQuery = splitQuery(pQuery, &pName, &pValue);
-            if (strcmp(pName, "override" ) == 0) overrideonoff = true;
-            if (strcmp(pName, "auto"     ) == 0)     autoonoff = true;
-            if (strcmp(pName, "on"       ) == 0)       checked = true;
-            if (strcmp(pName, "schedule1") == 0) ScheduleSave(0, pValue);
-            if (strcmp(pName, "schedule2") == 0) ScheduleSave(1, pValue);
-            if (strcmp(pName, "schedule3") == 0) ScheduleSave(2, pValue);
-            int schedule = *pValue - '0';
+            
+            int value = 0;
+            
+            sscanf(pValue, "%d", &value);
+            
+            if (strcmp(pName, "override"      ) == 0) overrideonoff = true;
+            if (strcmp(pName, "auto"          ) == 0)     autoonoff = true;
+            if (strcmp(pName, "on"            ) == 0)       checked = true;
+            
+            if (strcmp(pName, "tanksetpoint"  ) == 0) SettingsSetTankSetPoint     (value);
+            if (strcmp(pName, "tankhysteresis") == 0) SettingsSetTankHysteresis   (value);
+            if (strcmp(pName, "runonloss"     ) == 0) SettingsSetTankMinHoldOnLoss(value);
+            
+            if (strcmp(pName, "schedule1") == 0) ScheduleParse(0, pValue);
+            if (strcmp(pName, "schedule2") == 0) ScheduleParse(1, pValue);
+            if (strcmp(pName, "schedule3") == 0) ScheduleParse(2, pValue);
+            
+            int schedule = value;
             if (schedule < 1) schedule = 1;
             if (schedule > 3) schedule = 3;
             schedule--;
-            if (strcmp(pName, "mon") == 0) ScheduleSetMon(schedule);
-            if (strcmp(pName, "tue") == 0) ScheduleSetTue(schedule);
-            if (strcmp(pName, "wed") == 0) ScheduleSetWed(schedule);
-            if (strcmp(pName, "thu") == 0) ScheduleSetThu(schedule);
-            if (strcmp(pName, "fri") == 0) ScheduleSetFri(schedule);
-            if (strcmp(pName, "sat") == 0) ScheduleSetSat(schedule);
-            if (strcmp(pName, "sun") == 0) ScheduleSetSun(schedule);
+            if (strcmp(pName, "mon") == 0) ScheduleDay[1] = schedule;
+            if (strcmp(pName, "tue") == 0) ScheduleDay[2] = schedule;
+            if (strcmp(pName, "wed") == 0) ScheduleDay[3] = schedule;
+            if (strcmp(pName, "thu") == 0) ScheduleDay[4] = schedule;
+            if (strcmp(pName, "fri") == 0) ScheduleDay[5] = schedule;
+            if (strcmp(pName, "sat") == 0) ScheduleDay[6] = schedule;
+            if (strcmp(pName, "sun") == 0) ScheduleDay[0] = schedule;
         }
         if (overrideonoff) ScheduleOverride = checked;
-        if (    autoonoff) ScheduleSetAuto(checked);
+        if (    autoonoff) ScheduleAuto     = checked;
+        if (needToSave) ScheduleSaveAll();
         ResponseStart(id, REQUEST_LED, NULL);
         return 0;
     }
