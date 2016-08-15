@@ -15,8 +15,9 @@ int    CfgClockOffsetMs;
 int    CfgClockCalibration;
 
 char   CfgTankRom[8];
-char   CfgTankCoilInRom[8];
-char   CfgTankCoilOutRom[8];
+char   CfgBoilerOutputRom[8];
+char   CfgBoilerReturnRom[8];
+char   CfgHallRom[8];
 
 static void saveString(char *value, char  **dest) {
     *dest = (char*)realloc(*dest, strlen(value) + 1); //strlen does not include the null so add 1
@@ -56,8 +57,10 @@ static void handleLine(int n, int v, char *name, char *value)
     if (strcmp(name, "clock offset ms"            ) == 0) saveInt   (value, &CfgClockOffsetMs);
     if (strcmp(name, "clock calibration"          ) == 0) saveInt   (value, &CfgClockCalibration);
     if (strcmp(name, "tank"                       ) == 0) saveRom   (value,  CfgTankRom);
-    if (strcmp(name, "tank coil in"               ) == 0) saveRom   (value,  CfgTankCoilInRom);
-    if (strcmp(name, "tank coil out"              ) == 0) saveRom   (value,  CfgTankCoilOutRom);
+    if (strcmp(name, "boiler output"              ) == 0) saveRom   (value,  CfgBoilerOutputRom);
+    if (strcmp(name, "boiler return"              ) == 0) saveRom   (value,  CfgBoilerReturnRom);
+    if (strcmp(name, "hall"                       ) == 0) saveRom   (value,  CfgHallRom);
+    
 }
 static void resetValues(void)
 {
@@ -70,9 +73,10 @@ static void resetValues(void)
                        CfgClockSetRetryInterval = 0;
                        CfgClockOffsetMs         = 0;
                        CfgClockCalibration      = 0;
-                       memset(CfgTankRom,        0, 8);
-                       memset(CfgTankCoilInRom,  0, 8);
-                       memset(CfgTankCoilOutRom, 0, 8);
+                       memset(CfgTankRom,         0, 8);
+                       memset(CfgBoilerOutputRom, 0, 8);
+                       memset(CfgBoilerReturnRom, 0, 8);
+                       memset(CfgHallRom,         0, 8);
 }
 int CfgInit()   {
 

@@ -22,43 +22,43 @@ void HttpMakeDate(const char* date, const char *ptime, char* ptext)
 
 static void addHeaders(char *pResponse, char *pAllow, char *pContentType, char *pLastModified, char *pCacheControl)
 {
-    ResponseAddChunk("HTTP/1.1 ");
-    ResponseAddChunk(pResponse);
-    ResponseAddChunk("\r\n");
+    ResponseAdd("HTTP/1.1 ");
+    ResponseAdd(pResponse);
+    ResponseAdd("\r\n");
     
-    ResponseAddChunk("Connection: close\r\n");
+    ResponseAdd("Connection: close\r\n");
     
-    ResponseAddChunk("Date: ");
+    ResponseAdd("Date: ");
     char date[HTTP_DATE_SIZE];
     dateHeaderNow(date);
-    ResponseAddChunk(date);
-    ResponseAddChunk("\r\n");
+    ResponseAdd(date);
+    ResponseAdd("\r\n");
     
     if (pAllow)
     {
-        ResponseAddChunk("Allow: ");
-        ResponseAddChunk(pAllow);
-        ResponseAddChunk("\r\n");
+        ResponseAdd("Allow: ");
+        ResponseAdd(pAllow);
+        ResponseAdd("\r\n");
     }    
     if (pContentType)
     {
-        ResponseAddChunk("Content-Type: ");
-        ResponseAddChunk(pContentType);
-        ResponseAddChunk("\r\n");
+        ResponseAdd("Content-Type: ");
+        ResponseAdd(pContentType);
+        ResponseAdd("\r\n");
     }
     if (pLastModified)
     {
-        ResponseAddChunk("Last-Modified: ");
-        ResponseAddChunk(pLastModified);
-        ResponseAddChunk("\r\n");
+        ResponseAdd("Last-Modified: ");
+        ResponseAdd(pLastModified);
+        ResponseAdd("\r\n");
     }
     if (pCacheControl)
     {
-        ResponseAddChunk("Cache-Control: ");
-        ResponseAddChunk(pCacheControl);
-        ResponseAddChunk("\r\n");
+        ResponseAdd("Cache-Control: ");
+        ResponseAdd(pCacheControl);
+        ResponseAdd("\r\n");
     }
-    ResponseAddChunk("\r\n");    
+    ResponseAdd("\r\n");    
 }
 void HttpOk            (char *pContentType, char *pLastModified, char *pCacheControl) { addHeaders("200 OK",                 NULL,  pContentType, pLastModified, pCacheControl); }
 void HttpNotModified   (char *pContentType, char *pLastModified, char *pCacheControl) { addHeaders("304 Not Modified",       NULL,  pContentType, pLastModified, pCacheControl); }

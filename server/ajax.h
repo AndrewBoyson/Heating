@@ -1,0 +1,1 @@
+extern int Ajax(int chunk);

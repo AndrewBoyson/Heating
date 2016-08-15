@@ -8,6 +8,7 @@
 #include "response.h"
 #include   "server.h"
 #include "settings.h"
+#include "watchdog.h"
 
 #define RECV_BUFFER_SIZE 512
 static char recvbuffer[RECV_BUFFER_SIZE];
@@ -146,28 +147,35 @@ int RequestHandle(int id)
     
     if (strcmp(pPath, "/") == 0)
     {
+        while (pQuery)
+        {
+            char* pName;
+            char* pValue;
+            pQuery = splitQuery(pQuery, &pName, &pValue);
+                        
+            if (strcmp(pName, "autoon" ) == 0) ScheduleAuto = true;
+            if (strcmp(pName, "autooff") == 0) ScheduleAuto = false;
+            
+            if (strcmp(pName, "overrideon" ) == 0) ScheduleOverride = true;
+            if (strcmp(pName, "overrideoff") == 0) ScheduleOverride = false;           
+            
+        }
+        ResponseStart(id, REQUEST_HOME, NULL);
+        return 0;
+    }
+    
+    if (strcmp(pPath, "/timer") == 0)
+    {
         bool   needToSave = !!pQuery;
-        int overrideonoff = false;
-        int     autoonoff = false;
-        int       checked = false;
         while (pQuery)
         {
             char* pName;
             char* pValue;
             pQuery = splitQuery(pQuery, &pName, &pValue);
             
-            int value = 0;
-            
+            int value = 0;           
             sscanf(pValue, "%d", &value);
-            
-            if (strcmp(pName, "override"      ) == 0) overrideonoff = true;
-            if (strcmp(pName, "auto"          ) == 0)     autoonoff = true;
-            if (strcmp(pName, "on"            ) == 0)       checked = true;
-            
-            if (strcmp(pName, "tanksetpoint"  ) == 0) SettingsSetTankSetPoint     (value);
-            if (strcmp(pName, "tankhysteresis") == 0) SettingsSetTankHysteresis   (value);
-            if (strcmp(pName, "runonloss"     ) == 0) SettingsSetTankMinHoldOnLoss(value);
-            
+                        
             if (strcmp(pName, "schedule1") == 0) ScheduleParse(0, pValue);
             if (strcmp(pName, "schedule2") == 0) ScheduleParse(1, pValue);
             if (strcmp(pName, "schedule3") == 0) ScheduleParse(2, pValue);
@@ -183,18 +191,70 @@ int RequestHandle(int id)
             if (strcmp(pName, "fri") == 0) ScheduleDay[5] = schedule;
             if (strcmp(pName, "sat") == 0) ScheduleDay[6] = schedule;
             if (strcmp(pName, "sun") == 0) ScheduleDay[0] = schedule;
+            
         }
-        if (overrideonoff) ScheduleOverride = checked;
-        if (    autoonoff) ScheduleAuto     = checked;
         if (needToSave) ScheduleSaveAll();
-        ResponseStart(id, REQUEST_LED, NULL);
+        ResponseStart(id, REQUEST_TIMER, NULL);
         return 0;
     }
-    
+    if (strcmp(pPath, "/heating") == 0)
+    {
+        while (pQuery)
+        {
+            char* pName;
+            char* pValue;
+            pQuery = splitQuery(pQuery, &pName, &pValue);
+            
+            int value = 0;           
+            sscanf(pValue, "%d", &value);      
+            
+            if (strcmp(pName, "nighttemp") == 0) SettingsSetNightTemperature(value);
+            if (strcmp(pName, "frosttemp") == 0) SettingsSetFrostTemperature(value);
+        }
+        ResponseStart(id, REQUEST_HEATING, NULL);
+        return 0;
+    }
+    if (strcmp(pPath, "/boiler") == 0)
+    {
+        while (pQuery)
+        {
+            char* pName;
+            char* pValue;
+            pQuery = splitQuery(pQuery, &pName, &pValue);
+
+            int value = 0;
+            sscanf(pValue, "%d", &value);
+                        
+            if (strcmp(pName, "tanksetpoint"  ) == 0) SettingsSetTankSetPoint       (value);
+            if (strcmp(pName, "tankhysteresis") == 0) SettingsSetTankHysteresis     (value);
+            if (strcmp(pName, "boilerresidual") == 0) SettingsSetBoilerRunOnResidual(value);
+            if (strcmp(pName, "boilerrunon"   ) == 0) SettingsSetBoilerRunOnTime    (value);
+        }
+        ResponseStart(id, REQUEST_BOILER, NULL);
+        return 0;
+    }
+    if (strcmp(pPath, "/system") == 0)
+    {
+        while (pQuery)
+        {
+            char* pName;
+            char* pValue;
+            pQuery = splitQuery(pQuery, &pName, &pValue);
+                        
+            if (strcmp(pName, "watchdogflagoff") == 0) WatchdogFlag = false;
+        }
+        ResponseStart(id, REQUEST_SYSTEM, NULL);
+        return 0;
+    }
     if (strcmp(pPath, "/log") == 0)
     {
         ResponseStart(id, REQUEST_LOG, NULL);
         return 0;
+    }
+    if (strcmp(pPath, "/ajax") == 0)
+    {
+        ResponseStart(id, REQUEST_AJAX, NULL);   
+        return 0;    
     }
     if (strcmp(pPath, "/favicon.ico") == 0)
     {

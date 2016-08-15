@@ -7,6 +7,7 @@
 #include "resource.h"
 #include  "favicon.h"
 #include      "css.h"
+#include     "ajax.h"
 
 #define SEND_BUFFER_SIZE 1024
 static char sendbuffer[SEND_BUFFER_SIZE];
@@ -17,7 +18,7 @@ int ResponseAddChar(char c) //returns true when full
     sendbuffer[length++] = c;
     return length >= SEND_BUFFER_SIZE;
 }
-void ResponseAddChunkF(char *fmt, ...)
+void ResponseAddF(char *fmt, ...)
 {
     //Set up variable arguments
     va_list argptr;
@@ -37,7 +38,7 @@ void ResponseAddChunkF(char *fmt, ...)
     if (length > SEND_BUFFER_SIZE) length = SEND_BUFFER_SIZE;
 }
 
-void ResponseAddChunk(char *text)
+void ResponseAdd(char *text)
 {
     strncpy(sendbuffer + length, text, SEND_BUFFER_SIZE - length);
     length += strlen(text);
@@ -95,8 +96,13 @@ int ResponseGetNextChunkToSend(int id, int** ppLength, const char** ppBuffer)
         char fileDate[HTTP_DATE_SIZE];
         switch(whatToSendToId[id])
         {
+            case REQUEST_HOME:        HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
+            case REQUEST_TIMER:       HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
+            case REQUEST_HEATING:     HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
+            case REQUEST_BOILER:      HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
+            case REQUEST_SYSTEM:      HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
             case REQUEST_LOG:         HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
-            case REQUEST_LED:         HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
+            case REQUEST_AJAX:        HttpOk("text/plain; charset=utf-8", NULL, "no-cache"); break;
             case REQUEST_ICO:
                 HttpMakeDate(FaviconDate, FaviconTime, fileDate);
                 if (sameDateId[id]) HttpNotModified("image/x-icon", fileDate, "max-age=3600");
@@ -120,8 +126,13 @@ int ResponseGetNextChunkToSend(int id, int** ppLength, const char** ppBuffer)
     int chunkResult;
     switch(whatToSendToId[id])
     {
+        case REQUEST_HOME:        chunkResult = HtmlHome(chunk);         break;
+        case REQUEST_TIMER:       chunkResult = HtmlTimer(chunk);        break;
+        case REQUEST_HEATING:     chunkResult = HtmlHeating(chunk);      break;
+        case REQUEST_BOILER:      chunkResult = HtmlBoiler(chunk);       break;
+        case REQUEST_SYSTEM:      chunkResult = HtmlSystem(chunk);       break;
         case REQUEST_LOG:         chunkResult = HtmlLog(chunk);          break;
-        case REQUEST_LED:         chunkResult = HtmlLed(chunk);          break;
+        case REQUEST_AJAX:        chunkResult = Ajax(chunk);             break;
         case REQUEST_ICO:
             if (sameDateId[id])   chunkResult = RESPONSE_NO_MORE_CHUNKS;
             else                  chunkResult = ResourceIco(chunk);

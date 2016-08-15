@@ -1,5 +1,5 @@
 #include     "mbed.h"
-#include     "time.h"
+#include      "rtc.h"
 #include "settings.h"
 #include       "io.h"
 #include      "log.h"
@@ -237,9 +237,8 @@ void ScheduleParse(int schedule, char* text)
 
 static bool checkScheduleBeforeOverride()
 {   
-    time_t now = time(NULL);
     struct tm tm;
-    TimeToTmLocal(now, &tm);
+    RtcGetTmLocal(&tm);
     
     int dayOfWeek = tm.tm_wday;
     
@@ -270,7 +269,7 @@ bool ScheduleOverride;
 bool ScheduleIsCalling;
 
 int ScheduleMain()
-{
+{    
     if (ScheduleAuto)
     {
         int scheduleBeforeOverride = checkScheduleBeforeOverride();
