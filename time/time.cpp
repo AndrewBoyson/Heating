@@ -3,8 +3,6 @@
 #define STD_OFFSET 0
 #define DST_OFFSET 1
 
-int TimeScanUs = 0;
-
 // Convert compile time to system time 
 int TimeAsciiDateTimeToTm(const char* pDate, const char* pTime, struct tm* ptm)
 {
@@ -20,17 +18,6 @@ int TimeAsciiDateTimeToTm(const char* pDate, const char* pTime, struct tm* ptm)
     //Normalises the day of week and the day of year part of the tm structure as well as returning a time_t
     mktime(ptm); 
     
-    return 0;
-}
-int TimeMain()
-{
-    //Establish the scan time
-    static Timer scanTimer;
-    int scanUs = scanTimer.read_us();
-    scanTimer.reset();
-    scanTimer.start();
-    if (scanUs > TimeScanUs) TimeScanUs++;
-    if (scanUs < TimeScanUs) TimeScanUs--;
     return 0;
 }
 static int isLeapYear(int year)
@@ -51,28 +38,25 @@ static int monthLength(int year, int month)
 static int isDst(int year, int month, int dayOfMonth, int dayOfWeek, int hours)
 {
     //Find the last Sunday in the month
-    int lastSunday = monthLength(year, month);
-    while (lastSunday > 0)
-    {
-        int weekday = (dayOfWeek + lastSunday - dayOfMonth) % 7;
-        if (weekday == 0) break; //Stop when weekday is Sunday
-        lastSunday--;
-    }
+    int lastDayOfMonth = monthLength(year, month);
+    int daysToEndOfMonth = lastDayOfMonth - dayOfMonth;
+    int dayOfWeekOfLastDayOfMonth = (dayOfWeek + daysToEndOfMonth) % 7;
+    int lastSundayDayOfMonth = lastDayOfMonth - dayOfWeekOfLastDayOfMonth;
 
     //Check each month
     if (month <= 2) return false;                  //Jan, Feb
     if (month == 3)                                //Mar - DST true after 1am UTC on the last Sunday in March
     {
-        if (dayOfMonth <  lastSunday) return false;
-        if (dayOfMonth == lastSunday) return hours >= 1;
-        if (dayOfMonth >  lastSunday) return true;
+        if (dayOfMonth <  lastSundayDayOfMonth) return false;
+        if (dayOfMonth == lastSundayDayOfMonth) return hours >= 1;
+        if (dayOfMonth >  lastSundayDayOfMonth) return true;
     }
     if (month >= 4 && month <= 9)     return true; //Apr, May, Jun, Jul, Aug, Sep
     if (month == 10)                               //Oct - DST false after 1am UTC on the last Sunday in October
     {
-        if (dayOfMonth <  lastSunday) return true;
-        if (dayOfMonth == lastSunday) return hours < 1;
-        if (dayOfMonth >  lastSunday) return false;
+        if (dayOfMonth <  lastSundayDayOfMonth) return true;
+        if (dayOfMonth == lastSundayDayOfMonth) return hours < 1;
+        if (dayOfMonth >  lastSundayDayOfMonth) return false;
     }
     if (month >= 11) return false;                  //Nov, Dec
     return false;
@@ -84,6 +68,7 @@ static void normalise(int* pHours, int* pDayOfWeek, int* pDayOfMonth, int* pMont
         *pHours -= 24;
         ++*pDayOfWeek;
         if (*pDayOfWeek > 6) *pDayOfWeek = 0;
+        ++*pDayOfYear;
         ++*pDayOfMonth;
         if (*pDayOfMonth > monthLength(*pYear, *pMonth))
         {
@@ -103,6 +88,7 @@ static void normalise(int* pHours, int* pDayOfWeek, int* pDayOfMonth, int* pMont
         *pHours += 24;
         --*pDayOfWeek;
         if (*pDayOfWeek < 0) *pDayOfWeek = 6;
+        --*pDayOfYear;
         --*pDayOfMonth;
         if (*pDayOfMonth < 1)
         {
@@ -213,4 +199,21 @@ void TimeToTmUtc(time_t time, struct tm* ptm)
 void TimeToTmLocal(time_t time, struct tm* ptm)
 {
     timeToTm(time, ptm, true);
+}
+void TimeTmUtcToLocal(struct tm* ptm)
+{
+    //Adjust months from 00-11 to 01-12 and years to 1900
+    ptm->tm_mon  += 1;
+    ptm->tm_year += 1900;
+    
+    //Establish DST
+    ptm->tm_isdst = isDst(ptm->tm_year, ptm->tm_mon, ptm->tm_mday, ptm->tm_wday, ptm->tm_hour);
+        
+    //Adjust for the timezone
+    ptm->tm_hour += ptm->tm_isdst ? DST_OFFSET : STD_OFFSET;
+    normalise(&ptm->tm_hour, &ptm->tm_wday, &ptm->tm_mday, &ptm->tm_mon, &ptm->tm_yday, &ptm->tm_year);
+    
+    //Adjust months from 01-12 to 00-11 and years to 0
+    ptm->tm_mon  -= 1;
+    ptm->tm_year -= 1900;
 }

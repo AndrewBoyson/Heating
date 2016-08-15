@@ -3,8 +3,8 @@
 #define RESPONSE_NO_MORE_CHUNKS  2
 
 extern  int ResponseAddChar(char c);
-extern void ResponseAddChunkF(char *fmt, ...);
-extern void ResponseAddChunk(char *text);
+extern void ResponseAddF(char *fmt, ...);
+extern void ResponseAdd(char *text);
 
 extern int  ResponseInit();
 extern void ResponseStart(int id, int whatToSend, char* lastModified);

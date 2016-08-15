@@ -8,7 +8,8 @@ extern int   CfgClockOffsetMs;
 extern int   CfgClockCalibration;
 
 extern char  CfgTankRom[];
-extern char  CfgTankCoilInRom[];
-extern char  CfgTankCoilOutRom[];
+extern char  CfgBoilerOutputRom[];
+extern char  CfgBoilerReturnRom[];
+extern char  CfgHallRom[];
 
 extern int   CfgInit();

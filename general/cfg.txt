@@ -12,6 +12,8 @@ clock offset ms          =   50 #ms to add to offset the time taken in doing a c
 clock calibration        =    0 #+ve means skip a second each match seconds; -ve means add two seconds each match seconds
 
 tank          = 28 7e f8 80 07 00 00 ae
-tank coil in  = 28 4f 16 81 07 00 00 83
-tank coil out = 28 4f 16 81 07 00 00 83
+boiler output = 28 4f 16 81 07 00 00 83
+boiler return = 28 4f 16 81 07 00 00 83
+hall          = 28 4f 16 81 07 00 00 83
+
 

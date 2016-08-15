@@ -16,9 +16,44 @@ static char recv[RECV_BUFFER_LENGTH];
 static int sendlen = 0;
 static int recvlen = 0;
 
+int DS18B20ScanMs = 0;
+
+
 int     DS18B20DeviceCount = 0;
 char    DS18B20DeviceList[DEVICE_MAX * 8];
 int16_t DS18B20Value[DEVICE_MAX];
+
+#define MAX_TEMP_16THS 1600
+#define MIN_TEMP_16THS -160
+bool DS18B20IsValidValue(int16_t value)
+{
+    return value < MAX_TEMP_16THS && value > MIN_TEMP_16THS;
+}
+void DS18B20ValueToString(int16_t value, char* buffer)
+{
+    switch (value)
+    {
+        case DS18B20_ERROR_CRC:                     strcpy (buffer, "CRC error"                     ); break;
+        case DS18B20_ERROR_NOT_FOUND:               strcpy (buffer, "ROM not found"                 ); break;
+        case DS18B20_ERROR_TIMED_OUT:               strcpy (buffer, "Timed out"                     ); break;
+        case DS18B20_ERROR_NO_DEVICE_PRESENT:       strcpy (buffer, "No device detected after reset"); break;
+        case DS18B20_ERROR_NO_DEVICE_PARTICIPATING: strcpy (buffer, "Device removed during search"  ); break;
+        default:                                    sprintf(buffer, "%1.1f", value / 16.0           ); break;
+    }
+}
+void DS18B20AddressToString(int device, char* pBuffer)
+{
+    char *pAddress = DS18B20DeviceList + device * 8;
+    char *pAddressEnd = pAddress + 8;
+    for (char* p = pAddress; p < pAddressEnd; p++)
+    {
+        char highnibble = *p >> 4; //Unsigned so fills with zeros
+        char  lownibble = *p & 0xF;
+        *pBuffer++ = highnibble < 0xA ? highnibble + '0' : highnibble - 0xA + 'A'; //Replace high nibble with its ascii equivalent
+        *pBuffer++ =  lownibble < 0xA ?  lownibble + '0' :  lownibble - 0xA + 'A'; //Replace low nibble with its ascii equivalent
+        *pBuffer++ = p < pAddressEnd - 1 ? ' ' : 0;                                              //Put in a space between the bytes or a NUL at the end of the last one
+    }
+}
 
 int16_t DS18B20ValueFromRom(char* rom)
 {
@@ -66,10 +101,28 @@ int DS18B20Busy() { return state; }
 static int handlestate()
 {
     if (OneWireBusy()) return 0;
+    static Timer scanTimer;
     static int device;
     switch (state)
     {
         case IDLE:
+            //Establish the scan time
+            int scanMs;
+            scanMs = scanTimer.read_ms();
+            scanTimer.reset();
+            scanTimer.start();
+            int diffMs;
+            diffMs = scanMs - DS18B20ScanMs;
+            if (diffMs > 0xF || diffMs < 0xF)
+            {
+                DS18B20ScanMs += (scanMs - DS18B20ScanMs) >> 4;
+            }
+            else
+            {
+                if (scanMs > DS18B20ScanMs) DS18B20ScanMs++;
+                if (scanMs < DS18B20ScanMs) DS18B20ScanMs--;
+            }
+
             state = LIST_FIRST_DEVICE;
             break;
         case LIST_FIRST_DEVICE:

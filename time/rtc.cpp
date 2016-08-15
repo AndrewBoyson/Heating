@@ -81,14 +81,49 @@ uint64_t RtcGet()
     NVIC_EnableIRQ(RTC_IRQn);                                                   //Allow the fractional part to be reset at the end of a second including any pending
     return t;
 }
+
+void RtcGetTmUtc(struct tm* ptm)
+{
+    ptm->tm_sec   = LPC_RTC->SEC;         // 00 --> 59
+    ptm->tm_min   = LPC_RTC->MIN;         // 00 --> 59
+    ptm->tm_hour  = LPC_RTC->HOUR;        // 00 --> 23
+    ptm->tm_mday  = LPC_RTC->DOM;         // 01 --> 31
+    ptm->tm_mon   = LPC_RTC->MONTH - 1;   // 00 --> 11
+    ptm->tm_year  = LPC_RTC->YEAR - 1900; // Years since 1900
+    ptm->tm_wday  = LPC_RTC->DOW;         // 0 --> 6 where 0 == Sunday
+    ptm->tm_yday  = LPC_RTC->DOY - 1;     // 0 --> 365
+    ptm->tm_isdst = -1;                   // +ve if DST, 0 if not DST, -ve if the information is not available. Note that 'true' evaluates to +1.
+
+}
+void RtcSetTmUtc(struct tm* ptm)
+{
+    LPC_RTC->SEC   = ptm->tm_sec;         // 00 --> 59
+    LPC_RTC->MIN   = ptm->tm_min;         // 00 --> 59
+    LPC_RTC->HOUR  = ptm->tm_hour;        // 00 --> 23
+    LPC_RTC->DOM   = ptm->tm_mday;        // 01 --> 31
+    LPC_RTC->MONTH = ptm->tm_mon + 1;     // 00 --> 11
+    LPC_RTC->YEAR  = ptm->tm_year + 1900; // Years since 1900
+    LPC_RTC->DOW   = ptm->tm_wday;        // 0 --> 6 where 0 == Sunday
+    LPC_RTC->DOY   = ptm->tm_yday + 1;    // 0 --> 365
+}
 void     RtcSet(uint64_t t)
 {
     NVIC_DisableIRQ(RTC_IRQn);                                      //Stop the fractional part being reset at the end of a second
-    fractionalPartOfSetTime = t & ((1 << RTC_RESOLUTION_BITS) - 1); //Record the remaining fraction of a second not set in the RTC
-    set_time(t >> RTC_RESOLUTION_BITS);                             //Set the RTC to the whole number of seconds in the time
+    LPC_RTC->CCR      =    2;                                       //Stop the RTC and reset the divider
     LPC_TIM1->TCR     =    2;                                       //Clear the fractional part count    - 21.6.2 Timer Control Register - Reset  TC and PC
+    fractionalPartOfSetTime = t & ((1 << RTC_RESOLUTION_BITS) - 1); //Record the remaining fraction of a second not set in the RTC
+    int wholeseconds = t >> RTC_RESOLUTION_BITS;                    //Set the RTC to the whole number of seconds in the time
+    struct tm tm;
+    TimeToTmUtc(wholeseconds, &tm);
+    RtcSetTmUtc(&tm);
+    LPC_RTC->CCR      =    1;                                       //Start the clock
     LPC_TIM1->TCR     =    1;                                       //Enable the fractional part counter -  21.6.2 Timer Control Register - Enable TC and PC
     LPC_RTC->RTC_AUX  = 0x10;                                       //Record the RTC is set - 27.6.2.5 RTC Auxiliary control register - RTC Oscillator Fail detect flag - Writing a 1 to this bit clears the flag.
     NVIC_ClearPendingIRQ(RTC_IRQn);                                 //Clear any pending fractional part resets generated before the reset 
     NVIC_EnableIRQ(RTC_IRQn);                                       //Allow the fractional part to be reset at the end of a second
+}
+void RtcGetTmLocal(struct tm* ptm)
+{
+    RtcGetTmUtc(ptm);
+    TimeTmUtcToLocal(ptm);
 }
