@@ -3,15 +3,42 @@
 extern int  SettingsGetScheduleReg(int index);
 extern void SettingsSetScheduleReg(int index, int value);
 
+extern int  SettingsGetProgramPosition();
 extern int  SettingsGetTankSetPoint();
-extern void SettingsSetTankSetPoint(int value);
 extern int  SettingsGetTankHysteresis();
-extern void SettingsSetTankHysteresis(int value);
 extern int  SettingsGetBoilerRunOnResidual();
-extern void SettingsSetBoilerRunOnResidual(int value);
 extern int  SettingsGetBoilerRunOnTime();
-extern void SettingsSetBoilerRunOnTime(int value);
 extern int  SettingsGetNightTemperature();
-extern void SettingsSetNightTemperature(int value);
 extern int  SettingsGetFrostTemperature();
+
+extern void SettingsSetProgramPosition(int value);
+extern void SettingsSetTankSetPoint(int value);
+extern void SettingsSetTankHysteresis(int value);
+extern void SettingsSetBoilerRunOnResidual(int value);
+extern void SettingsSetBoilerRunOnTime(int value);
+extern void SettingsSetNightTemperature(int value);
 extern void SettingsSetFrostTemperature(int value);
+
+extern char* SettingsGetTankRom();
+extern char* SettingsGetBoilerOutputRom();
+extern char* SettingsGetBoilerReturnRom();
+extern char* SettingsGetHallRom();
+
+extern char* SettingsGetClockNtpIp();
+extern int   SettingsGetClockInitialInterval();
+extern int   SettingsGetClockNormalInterval();
+extern int   SettingsGetClockRetryInterval();
+extern int   SettingsGetClockOffsetMs();
+
+extern void SettingsSetTankRom              (char* value);
+extern void SettingsSetBoilerOutputRom      (char* value);
+extern void SettingsSetBoilerReturnRom      (char* value);
+extern void SettingsSetHallRom              (char* value);
+
+extern void SettingsSetClockNtpIp           (char *value);
+extern void SettingsSetClockInitialInterval (int   value);
+extern void SettingsSetClockNormalInterval  (int   value);
+extern void SettingsSetClockRetryInterval   (int   value);
+extern void SettingsSetClockOffsetMs        (int   value);
+
+extern int  SettingsInit();

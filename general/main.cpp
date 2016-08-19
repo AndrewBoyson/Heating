@@ -14,8 +14,10 @@
 #include  "ds18b20.h"
 #include  "heating.h"
 #include "watchdog.h"
+#include "settings.h"
 
 int MainScanUs = 0;
+int MainLastProgramPosition;
 
 int main()
 {
@@ -23,11 +25,14 @@ int main()
     //stopTimer.reset();
     //stopTimer.start();
     
+    MainLastProgramPosition = SettingsGetProgramPosition();
+    
     int r = 0;
     
     r =       IoInit();
     r =      RtcInit();
     r =      CfgInit();
+    r = SettingsInit();
     r =      LogInit();
     r =     UartInit();
     r =      EspInit();
@@ -42,17 +47,19 @@ int main()
     while (1)
     {        
         //Scan each module
-        r =     WifiMain(); if (r) break;
-        r =       AtMain(); if (r) break;
-        r =     UartMain(); if (r) break;
-        r =      EspMain(); if (r) break;
-        r =      NtpMain(); if (r) break;
-        r =   ServerMain(); if (r) break;
-        r =  OneWireMain(); if (r) break;
-        r =  DS18B20Main(); if (r) break;
-        r =  HeatingMain(); if (r) break;
-        r = WatchdogMain(); if (r) break;
+        SettingsSetProgramPosition(0); r =     WifiMain(); if (r) break;
+        SettingsSetProgramPosition(1); r =       AtMain(); if (r) break;
+        SettingsSetProgramPosition(2); r =     UartMain(); if (r) break;
+        SettingsSetProgramPosition(3); r =      EspMain(); if (r) break;
+        SettingsSetProgramPosition(4); r =      NtpMain(); if (r) break;
+        SettingsSetProgramPosition(5); r =   ServerMain(); if (r) break;
+        SettingsSetProgramPosition(6); r =  OneWireMain(); if (r) break;
+        SettingsSetProgramPosition(7); r =  DS18B20Main(); if (r) break;
+        SettingsSetProgramPosition(8); r =  HeatingMain(); if (r) break;
+        SettingsSetProgramPosition(9); r = WatchdogMain(); if (r) break;
         
+        
+        SettingsSetProgramPosition(10); 
         switch (WifiStatus)
         {
             case WIFI_STOPPED:   Led2 = 0; Led3 = 0; Led4 = 1; break;

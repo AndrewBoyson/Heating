@@ -7,7 +7,7 @@
 
 #define DEBUG false //Set this to true to add debug messages to the log
 
-#define DEVICE_MAX 4
+#define DEVICE_MAX 8
 
 #define SEND_BUFFER_LENGTH 10
 #define RECV_BUFFER_LENGTH 10
@@ -41,9 +41,12 @@ void DS18B20ValueToString(int16_t value, char* buffer)
         default:                                    sprintf(buffer, "%1.1f", value / 16.0           ); break;
     }
 }
-void DS18B20AddressToString(int device, char* pBuffer)
+char* DS18B20DeviceAddress(int device)
 {
-    char *pAddress = DS18B20DeviceList + device * 8;
+    return DS18B20DeviceList + device * 8;
+}
+void DS18B20AddressToString(char* pAddress, char* pBuffer)
+{
     char *pAddressEnd = pAddress + 8;
     for (char* p = pAddress; p < pAddressEnd; p++)
     {
@@ -53,6 +56,16 @@ void DS18B20AddressToString(int device, char* pBuffer)
         *pBuffer++ =  lownibble < 0xA ?  lownibble + '0' :  lownibble - 0xA + 'A'; //Replace low nibble with its ascii equivalent
         *pBuffer++ = p < pAddressEnd - 1 ? ' ' : 0;                                              //Put in a space between the bytes or a NUL at the end of the last one
     }
+}
+int DS18B20ParseAddress(char* pText, char *pAddress)
+{
+    if (strlen(pText) != DS18B20_ADDRESS_STRING_LENGTH - 1)
+    {
+        LogF("Error parsing device address - wrong length");
+        return -1; 
+    }
+    for (int i = 0; i < 8; i++) pAddress[i] = (char)strtoul(pText, &pText, 16);
+    return 0;
 }
 
 int16_t DS18B20ValueFromRom(char* rom)

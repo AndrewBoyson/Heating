@@ -4,16 +4,3 @@ baud  = 614400  #Possible values are: 115200; 230400; 460800; 614400; 921600
 
 ssid     = Put your wifi ssid here
 password = Put your wifi password here
-
-ntp ip   = 192.168.1.3
-clock set interval       =  600 #Seconds between successive successful setting of the rtc from ntp
-clock set retry interval =   60 #Seconds following an unsuccessful attempt to set the rtc from ntp
-clock offset ms          =   50 #ms to add to offset the time taken in doing a clock set from ntp
-clock calibration        =    0 #+ve means skip a second each match seconds; -ve means add two seconds each match seconds
-
-tank          = 28 7e f8 80 07 00 00 ae
-boiler output = 28 4f 16 81 07 00 00 83
-boiler return = 28 4f 16 81 07 00 00 83
-hall          = 28 4f 16 81 07 00 00 83
-
-

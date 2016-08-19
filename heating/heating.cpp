@@ -1,10 +1,10 @@
-#include "schedule.h"
+#include  "program.h"
 #include "radiator.h"
 #include   "boiler.h"
 
 int HeatingMain()
 {
-    ScheduleMain();
+    ProgramMain();
     RadiatorMain();
     BoilerMain();
     
@@ -12,6 +12,6 @@ int HeatingMain()
 }
 int HeatingInit()
 {
-    ScheduleInit();
+    ProgramInit();
     return 0;
 }

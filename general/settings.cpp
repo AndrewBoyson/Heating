@@ -1,5 +1,6 @@
 #include "mbed.h"
 #include  "log.h"
+#include   "io.h"
 
 int SettingsGetScheduleReg(int index)
 {
@@ -32,62 +33,127 @@ void SettingsSetScheduleReg(int index, int value)
 
 
 /*
-ALSEC   6 (00 -  64) Alarm value for Seconds       TankHysteresis
-ALMIN   6 (00 -  64) Alarm value for Minutes       BoilerRunOnResidual
-ALHOUR  5 (00 -  32) Alarm value for Hours         NightTemperature
-ALDOM   5 (00 -  32) Alarm value for Day of Month  FrostTemperature
-ALDOW   3 (00 -  07) Alarm value for Day of Week
-ALDOY   9 (00 - 511) Alarm value for Day of Year   TankSetPoint
-ALMON   4 (00 -  15) Alarm value for Months
-ALYEAR 12 Alarm value for Years         BoilerRunOnTime
+ALSEC   6 (  64) Alarm value for Seconds       TankHysteresis
+ALMIN   6 (  64) Alarm value for Minutes       ProgramPosition
+ALHOUR  5 (  32) Alarm value for Hours         NightTemperature
+ALDOM   5 (  32) Alarm value for Day of Month  FrostTemperature
+ALDOW   3 (   8) Alarm value for Day of Week
+ALDOY   9 ( 512) Alarm value for Day of Year   TankSetPoint
+ALMON   4 (  16) Alarm value for Months        BoilerRunOnResidual
+ALYEAR 12 (4096) Alarm value for Years         BoilerRunOnTime
 Total  50
 */
 
-int  SettingsGetTankSetPoint()
+int  SettingsGetProgramPosition    () { return LPC_RTC->ALMIN;     }
+int  SettingsGetTankSetPoint       () { return LPC_RTC->ALDOY;     }
+int  SettingsGetTankHysteresis     () { return LPC_RTC->ALSEC;     }
+int  SettingsGetBoilerRunOnResidual() { return LPC_RTC->ALMON - 8; } //0 to 16 ==> -8 to +7
+int  SettingsGetBoilerRunOnTime    () { return LPC_RTC->ALYEAR;    }
+int  SettingsGetNightTemperature   () { return LPC_RTC->ALHOUR;    }
+int  SettingsGetFrostTemperature   () { return LPC_RTC->ALDOM;     }
+
+void SettingsSetProgramPosition    (int value) { if (value >   63) value =   63; if (value <   0) value =   0; LPC_RTC->ALMIN  = value;     }
+void SettingsSetTankSetPoint       (int value) { if (value >   99) value =   99; if (value <   0) value =   0; LPC_RTC->ALDOY  = value;     }
+void SettingsSetTankHysteresis     (int value) { if (value >   63) value =   63; if (value <   0) value =   0; LPC_RTC->ALSEC  = value;     }
+void SettingsSetBoilerRunOnResidual(int value) { if (value >    7) value =    7; if (value <  -8) value =  -8; LPC_RTC->ALMON  = value + 8; }
+void SettingsSetBoilerRunOnTime    (int value) { if (value > 4095) value = 4095; if (value <   0) value =   0; LPC_RTC->ALYEAR = value;     }
+void SettingsSetNightTemperature   (int value) { if (value >   31) value =   31; if (value <   0) value =   0; LPC_RTC->ALHOUR = value;     }
+void SettingsSetFrostTemperature   (int value) { if (value >   31) value =   31; if (value <   0) value =   0; LPC_RTC->ALDOM  = value;     }
+
+
+static void saveIp(char* filename, char* pSetting, char* value)
 {
-    return LPC_RTC->ALDOY;
+    strncpy(pSetting, value, 16);
+    FILE *fp = fopen(filename, "w");
+    if (!fp) return;
+    fputs(value, fp);
+    fclose(fp);
 }
-void SettingsSetTankSetPoint(int value)
+static void saveRom(char* filename, char* pSetting, char* value)
 {
-    LPC_RTC->ALDOY = value;
+    memcpy(pSetting, value, 8);
+    FILE *fp = fopen(filename, "w");
+    if (!fp) return;
+    fwrite(pSetting, 1, 8, fp);
+    fclose(fp);
 }
-int  SettingsGetTankHysteresis()
+static void saveInt(char* filename, int* pSetting, int value)
 {
-    return LPC_RTC->ALSEC;
+    *pSetting = value;
+    FILE *fp = fopen(filename, "w");
+    if (!fp) return;
+    fwrite(pSetting, sizeof(int), 1, fp);
+    fclose(fp);
 }
-void SettingsSetTankHysteresis(int value)
+static void loadIp(char* filename, char* pSetting)
 {
-    LPC_RTC->ALSEC = value;
+    *pSetting = 0;
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return;
+    fgets(pSetting, 16, fp); // At most n−1 characters are read (leaving room for the null).
+    fclose(fp);
 }
-int  SettingsGetBoilerRunOnResidual()
+static void loadRom(char* filename, char* pSetting)
 {
-    return LPC_RTC->ALMIN;
+    memset(pSetting, 0, 8);
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return;
+    fread(pSetting, 1, 8, fp);
+    fclose(fp);   
 }
-void SettingsSetBoilerRunOnResidual(int value)
+static void loadInt(char* filename, int* pSetting, int defaultValue)
 {
-    LPC_RTC->ALMIN = value;
+    *pSetting = defaultValue;
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return;
+    fread(pSetting, sizeof(int), 1, fp);
+    fclose(fp);   
 }
-int  SettingsGetBoilerRunOnTime()
+
+static char clockNtpIp[16];
+static int  clockInitialInterval;
+static int  clockNormalInterval;
+static int  clockRetryInterval;
+static int  clockOffsetMs;
+
+static char tankRom[8];
+static char boilerOutputRom[8];
+static char boilerReturnRom[8];
+static char hallRom[8];
+
+char* SettingsGetClockNtpIp()           { return clockNtpIp;           }
+int   SettingsGetClockInitialInterval() { return clockInitialInterval; }
+int   SettingsGetClockNormalInterval()  { return clockNormalInterval;  }
+int   SettingsGetClockRetryInterval()   { return clockRetryInterval;   }
+int   SettingsGetClockOffsetMs()        { return clockOffsetMs;        }
+
+char* SettingsGetTankRom()         { return tankRom;         }
+char* SettingsGetBoilerOutputRom() { return boilerOutputRom; }
+char* SettingsGetBoilerReturnRom() { return boilerReturnRom; }
+char* SettingsGetHallRom()         { return hallRom;         }
+
+void SettingsSetClockNtpIp           (char *value) { saveIp ("/local/clk_ntp.ip",    clockNtpIp,           value); }
+void SettingsSetClockInitialInterval (int   value) { saveInt("/local/clk_init.tim", &clockInitialInterval, value); }
+void SettingsSetClockNormalInterval  (int   value) { saveInt("/local/clk_norm.tim", &clockNormalInterval,  value); }
+void SettingsSetClockRetryInterval   (int   value) { saveInt("/local/clk_retr.tim", &clockRetryInterval,   value); }
+void SettingsSetClockOffsetMs        (int   value) { saveInt("/local/clk_offs.tim", &clockOffsetMs,        value); }
+
+void SettingsSetTankRom        (char* value) { saveRom("/local/tank.rom",    tankRom,         value); }
+void SettingsSetBoilerOutputRom(char* value) { saveRom("/local/blr_out.rom", boilerOutputRom, value); }
+void SettingsSetBoilerReturnRom(char* value) { saveRom("/local/blr_rtn.rom", boilerReturnRom, value); }
+void SettingsSetHallRom        (char* value) { saveRom("/local/hall.rom",    hallRom,         value); }
+
+int  SettingsInit()
 {
-    return LPC_RTC->ALYEAR;
-}
-void SettingsSetBoilerRunOnTime(int value)
-{
-    LPC_RTC->ALYEAR = value;
-}
-int  SettingsGetNightTemperature()
-{
-    return LPC_RTC->ALHOUR;
-}
-void SettingsSetNightTemperature(int value)
-{
-    LPC_RTC->ALHOUR = value;
-}
-int  SettingsGetFrostTemperature()
-{
-    return LPC_RTC->ALDOM;
-}
-void SettingsSetFrostTemperature(int value)
-{
-    LPC_RTC->ALDOM = value;
+    loadRom("/local/tank.rom",      tankRom        );
+    loadRom("/local/blr_out.rom",   boilerOutputRom);
+    loadRom("/local/blr_rtn.rom",   boilerReturnRom);
+    loadRom("/local/hall.rom",      hallRom        );
+    
+    loadIp ("/local/clk_ntp.ip",    clockNtpIp              );
+    loadInt("/local/clk_init.tim", &clockInitialInterval,  1);
+    loadInt("/local/clk_norm.tim",  &clockNormalInterval, 600);
+    loadInt("/local/clk_retr.tim", &clockRetryInterval,   60);
+    loadInt("/local/clk_offs.tim", &clockOffsetMs,         0);
+    return 0;
 }

@@ -5,11 +5,12 @@
 #include     "main.h"
 #include      "cfg.h"
 #include  "heating.h"
-#include "schedule.h"
+#include  "program.h"
 #include       "at.h"
 #include  "request.h"
 #include   "server.h"
 #include "response.h"
+#include       "io.h"
 #include "radiator.h"
 #include   "boiler.h"
 #include "settings.h"
@@ -61,22 +62,22 @@ static void addNavItem(int highlight, char* href, char* title)
 }
 enum pages
 {
-        HOME_PAGE,
-    SCHEDULE_PAGE,
-     HEATING_PAGE,
-      BOILER_PAGE,
-      SYSTEM_PAGE,
-         LOG_PAGE
+       HOME_PAGE,
+    PROGRAM_PAGE,
+    HEATING_PAGE,
+     BOILER_PAGE,
+     SYSTEM_PAGE,
+        LOG_PAGE
 };
 static void addNav(int page)
 {
     ResponseAdd("<nav><ul>\r\n");
-    addNavItem(page ==     HOME_PAGE, "/",        "Home");
-    addNavItem(page == SCHEDULE_PAGE, "/timer",   "Timer");
-    addNavItem(page ==  HEATING_PAGE, "/heating", "Heating");
-    addNavItem(page ==   BOILER_PAGE, "/boiler",  "Boiler");
-    addNavItem(page ==   SYSTEM_PAGE, "/system",  "System");
-    addNavItem(page ==      LOG_PAGE, "/log",     "Log");
+    addNavItem(page ==    HOME_PAGE, "/",        "Home");
+    addNavItem(page == PROGRAM_PAGE, "/program", "Program");
+    addNavItem(page == HEATING_PAGE, "/heating", "Heating");
+    addNavItem(page ==  BOILER_PAGE, "/boiler",  "Boiler");
+    addNavItem(page ==  SYSTEM_PAGE, "/system",  "System");
+    addNavItem(page ==     LOG_PAGE, "/log",     "Log");
     ResponseAdd("</ul></nav>\r\n");
 }
 
@@ -172,10 +173,6 @@ int HtmlHome(int chunk)
     {
         ResponseAdd("<h1>Time</h1>\r\n");
         struct tm tm;
-        RtcGetTmUtc(&tm);
-        ResponseAdd("<div>\r\n");
-        addTm(&tm);
-        ResponseAdd("</div>\r\n");
         RtcGetTmLocal(&tm);
         ResponseAdd("<div>\r\n");
         addTm(&tm);
@@ -183,31 +180,31 @@ int HtmlHome(int chunk)
         
         ResponseAdd("<h1>Temperature</h1>\r\n");
         int16_t temp;
-        temp = DS18B20ValueFromRom(CfgHallRom);
+        temp = DS18B20ValueFromRom(SettingsGetHallRom());
         addLabelledTemperature("Hall", 3, temp);
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        ResponseAdd("<h1>Heating mode</h1>\r\n");
-        if (ScheduleAuto) addFormCheckInput("/", "Mode is winter", "autooff", "change to summer");
-        else              addFormCheckInput("/", "Mode is summer", "autoon" , "change to winter");
+        ResponseAdd("<h1>Heating</h1>\r\n");
+        if (ProgramAuto) addFormCheckInput("/", "Auto (winter)", "autooff", "change to off (summer)");
+        else             addFormCheckInput("/", "Off (summer)",  "autoon" , "change to auto (winter)");
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        ResponseAdd("<h1>Heating timer</h1>\r\n");
-        if (ScheduleAuto)
+        ResponseAdd("<h1>Manual program override</h1>\r\n");
+        if (ProgramAuto)
         {
-            if (ScheduleIsCalling)
+            if (ProgramIsCalling)
             {
-                if (ScheduleOverride) addFormCheckInput("/", "Heating is on (manual)", "overrideoff", "turn it off");
-                else                  addFormCheckInput("/", "Heating is on (auto)",   "overrideon",  "turn it off");
+                if (ProgramOverride) addFormCheckInput("/", "Heating is on (manual)", "overrideoff", "turn it off");
+                else                 addFormCheckInput("/", "Heating is on (auto)",   "overrideon",  "turn it off");
             }
             else
             {
-                if (ScheduleOverride) addFormCheckInput("/", "Heating is off (manual)", "overrideoff", "turn it on");
-                else                  addFormCheckInput("/", "Heating is off (auto)",   "overrideon",  "turn it on");
+                if (ProgramOverride) addFormCheckInput("/", "Heating is off (manual)", "overrideoff", "turn it on");
+                else                 addFormCheckInput("/", "Heating is off (auto)",   "overrideon",  "turn it on");
             }
         }
         else
@@ -223,7 +220,7 @@ int HtmlHome(int chunk)
     }
     return RESPONSE_NO_MORE_CHUNKS;
 }
-int HtmlTimer(int chunk)
+int HtmlProgram(int chunk)
 {
     int posn = -1;
     if (++posn == chunk)
@@ -233,39 +230,39 @@ int HtmlTimer(int chunk)
     }
     if (++posn == chunk)
     {
-        addNav(SCHEDULE_PAGE);
+        addNav(PROGRAM_PAGE);
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        ResponseAdd("<h1>Schedules</h1>\r\n");
-        const int SCHEDULE_CHARACTER_LENGTH = 30;
-        char value[SCHEDULE_CHARACTER_LENGTH];
-        addFormStart("/timer");
-        ScheduleToString(0, SCHEDULE_CHARACTER_LENGTH, value); addFormTextInput(0, "1", 1, "schedule1", 15, value);
-        ScheduleToString(1, SCHEDULE_CHARACTER_LENGTH, value); addFormTextInput(0, "2", 1, "schedule2", 15, value);
-        ScheduleToString(2, SCHEDULE_CHARACTER_LENGTH, value); addFormTextInput(0, "3", 1, "schedule3", 15, value);
+        ResponseAdd("<h1>Programs</h1>\r\n");
+        const int PROGRAM_CHARACTER_LENGTH = 30;
+        char value[PROGRAM_CHARACTER_LENGTH];
+        addFormStart("/program");
+        ProgramToString(0, PROGRAM_CHARACTER_LENGTH, value); addFormTextInput(0, "1", 1, "program1", 15, value);
+        ProgramToString(1, PROGRAM_CHARACTER_LENGTH, value); addFormTextInput(0, "2", 1, "program2", 15, value);
+        ProgramToString(2, PROGRAM_CHARACTER_LENGTH, value); addFormTextInput(0, "3", 1, "program3", 15, value);
         addFormEnd();
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Days</h1>\r\n");
-        addFormStart("/timer");
+        addFormStart("/program");
         ResponseAdd("<div>\r\n");
-        addFormIntInput(3.3, "Mon", 2.3, "mon", 1, ScheduleDay[1] + 1);
-        addFormIntInput(3.3, "Tue", 2.3, "tue", 1, ScheduleDay[2] + 1);
-        addFormIntInput(3.3, "Wed", 2.3, "wed", 1, ScheduleDay[3] + 1);
-        addFormIntInput(3.3, "Thu", 2.3, "thu", 1, ScheduleDay[4] + 1);
-        addFormIntInput(3.3, "Fri", 2.3, "fri", 1, ScheduleDay[5] + 1);
+        addFormIntInput(3.3, "Mon", 2.3, "mon", 1, ProgramDay[1] + 1);
+        addFormIntInput(3.3, "Tue", 2.3, "tue", 1, ProgramDay[2] + 1);
+        addFormIntInput(3.3, "Wed", 2.3, "wed", 1, ProgramDay[3] + 1);
+        addFormIntInput(3.3, "Thu", 2.3, "thu", 1, ProgramDay[4] + 1);
+        addFormIntInput(3.3, "Fri", 2.3, "fri", 1, ProgramDay[5] + 1);
         ResponseAdd("</div>\r\n");
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {       
         ResponseAdd("<div>\r\n");
-        addFormIntInput(3.3, "Sat", 2.3, "sat", 1, ScheduleDay[6] + 1);
-        addFormIntInput(3.3, "Sun", 2.3, "sun", 1, ScheduleDay[0] + 1);
+        addFormIntInput(3.3, "Sat", 2.3, "sat", 1, ProgramDay[6] + 1);
+        addFormIntInput(3.3, "Sun", 2.3, "sun", 1, ProgramDay[0] + 1);
         ResponseAdd("</div>\r\n");
         addFormEnd();
         return RESPONSE_SEND_CHUNK;
@@ -293,10 +290,10 @@ int HtmlHeating(int chunk)
     if (++posn == chunk)
     {        
         ResponseAdd("<h1>Inputs</h1>\r\n");
-        int16_t temp = DS18B20ValueFromRom(CfgHallRom);
+        int16_t temp = DS18B20ValueFromRom(SettingsGetHallRom());
         addLabelledTemperature("Hall"   , 10, temp);
-        addLabelledOnOff("Winter mode"  , 10, ScheduleAuto);
-        addLabelledOnOff("Heating timer", 10, ScheduleIsCalling);
+        addLabelledOnOff("Winter mode"  , 10, ProgramAuto);
+        addLabelledOnOff("Heating timer", 10, ProgramIsCalling);
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
@@ -339,9 +336,9 @@ int HtmlBoiler(int chunk)
         ResponseAdd("<h1>Inputs</h1>\r\n");
         int16_t temp;
         
-        temp = DS18B20ValueFromRom(CfgTankRom);          addLabelledTemperature("Tank",          10, temp);
-        temp = DS18B20ValueFromRom(CfgBoilerOutputRom);  addLabelledTemperature("Boiler output", 10, temp);
-        temp = DS18B20ValueFromRom(CfgBoilerReturnRom);  addLabelledTemperature("Boiler return", 10, temp);
+        temp = DS18B20ValueFromRom(SettingsGetTankRom());          addLabelledTemperature("Tank",          10, temp);
+        temp = DS18B20ValueFromRom(SettingsGetBoilerOutputRom());  addLabelledTemperature("Boiler output", 10, temp);
+        temp = DS18B20ValueFromRom(SettingsGetBoilerReturnRom());  addLabelledTemperature("Boiler return", 10, temp);
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
@@ -358,8 +355,8 @@ int HtmlBoiler(int chunk)
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Outputs</h1>\r\n");
-        addLabelledOnOff("Boiler flame", 10, BoilerCall);
-        addLabelledOnOff("Boiler pump" , 10, BoilerPump);
+        addLabelledOnOff("Boiler call", 10, BoilerCall);
+        addLabelledOnOff("Boiler pump", 10, BoilerPump);
         
         return RESPONSE_SEND_CHUNK;
     }
@@ -385,21 +382,68 @@ int HtmlSystem(int chunk)
     }
     if (++posn == chunk)
     {
+        ResponseAdd("<h1>Time</h1>\r\n");
+        struct tm tm;
+        RtcGetTmUtc(&tm);
+        ResponseAdd("<div>\r\n");
+        addTm(&tm);
+        ResponseAdd("</div>\r\n");
+        RtcGetTmLocal(&tm);
+        ResponseAdd("<div>\r\n");
+        addTm(&tm);
+        ResponseAdd("</div>\r\n");
+        
         ResponseAdd("<h1>Scan times</h1>\r\n");
-        addLabelledInt("Program &micro;s", 8, MainScanUs);
-        addLabelledInt("Devices ms",       8, DS18B20ScanMs);
+        addLabelledInt("Program &micro;s", 6, MainScanUs);
+        addLabelledInt("Devices ms",       6, DS18B20ScanMs);
 
-        ResponseAdd("<h1>Watchdog</h1>\r\n");
-        if (WatchdogFlag) addFormCheckInput("/system", "Watchdog flag is on", "watchdogflagoff", "turn it off");
-        else              ResponseAdd("<div>Watchdog flag is off</div>\r\n");
+        ResponseAdd("<h1>Last reset</h1>\r\n");
+        if (WatchdogFlag)
+        {
+            addFormCheckInput("/system", "Watchdog bit", "watchdogflagoff", "clear it");
+            addLabelledInt("After position", 8, MainLastProgramPosition);
+        }
+        else
+        {
+            ResponseAdd("<div>Normal</div>\r\n");
+        }
 
         ResponseAdd("<h1>DS18B20 1-wire devices</h1>\r\n");
         for (int device = 0; device < DS18B20DeviceCount; device++)
         {
-            char addressbuffer[DS18B20_ADDRESS_STRING_LENGTH];   DS18B20AddressToString(device,             addressbuffer);
-            char   valuebuffer[DS18B20_VALUE_STRING_LENGTH];     DS18B20ValueToString  (DS18B20Value[device], valuebuffer);
+            char addressbuffer[DS18B20_ADDRESS_STRING_LENGTH];   DS18B20AddressToString(DS18B20DeviceList + device * 8, addressbuffer);
+            char   valuebuffer[DS18B20_VALUE_STRING_LENGTH];     DS18B20ValueToString  (DS18B20Value[device]          , valuebuffer);
             ResponseAddF("<div>%d - %s - %s</div>\r\n", device, addressbuffer, valuebuffer);
         }
+        return RESPONSE_SEND_CHUNK;
+    }
+    if (++posn == chunk)
+    {
+        ResponseAdd("<h1>ROMs</h1>\r\n");
+        char text[DS18B20_ADDRESS_STRING_LENGTH];
+        
+        addFormStart("/system");
+        DS18B20AddressToString(SettingsGetTankRom(),         text); addFormTextInput(0, "Tank",          6, "tankrom",         11, text);
+        DS18B20AddressToString(SettingsGetBoilerOutputRom(), text); addFormTextInput(0, "Boiler output", 6, "boileroutputrom", 11, text);
+        DS18B20AddressToString(SettingsGetBoilerReturnRom(), text); addFormTextInput(0, "Boiler return", 6, "boilerreturnrom", 11, text);
+        DS18B20AddressToString(SettingsGetHallRom(),         text); addFormTextInput(0, "Hall",          6, "hallrom",         11, text);
+        addFormEnd();
+        
+        return RESPONSE_SEND_CHUNK;
+    }
+    if (++posn == chunk)
+    {
+        ResponseAdd("<h1>Clock</h1>\r\n");
+        
+        addFormStart("/system");
+        addFormTextInput(0, "NTP IP",               10, "ntpip",         6, SettingsGetClockNtpIp()           );
+        addFormIntInput (0, "Initial interval (s)", 10, "clockinitial",  3, SettingsGetClockInitialInterval() );
+        addFormIntInput (0, "Normal interval (s)",  10, "clocknormal",   3, SettingsGetClockNormalInterval()  );
+        addFormIntInput (0, "Retry interval (s)",   10, "clockretry",    3, SettingsGetClockRetryInterval()   );
+        addFormIntInput (0, "Offset (ms)",          10, "clockoffset",   3, SettingsGetClockOffsetMs()        );
+        addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcGetCalibration()               );
+        addFormEnd();
+        
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)

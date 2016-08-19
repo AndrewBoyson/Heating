@@ -1,6 +1,7 @@
 #include "mbed.h"
+#include "settings.h"
 
-bool WatchdogFlag; //Set in WatchdogInit - true if last reset was caused by the watchdog; false if was hardware reset
+bool WatchdogFlag;  //Set in WatchdogInit - true if last reset was caused by the watchdog; false if was hardware reset
 
 int WatchdogInit()
 {
