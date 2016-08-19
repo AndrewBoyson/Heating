@@ -3,14 +3,11 @@
 #include      "cfg.h"
 #include "settings.h"
 
-int BoilerPump;
-int BoilerCall;
-
 int BoilerMain()
 {
         
     //Control boiler call
-    int tankTemp16ths = DS18B20ValueFromRom(CfgTankRom);
+    int tankTemp16ths = DS18B20ValueFromRom(SettingsGetTankRom());
     if (DS18B20IsValidValue(tankTemp16ths)) //Ignore values which are likely to be wrong
     {
         int  tankUpper16ths = SettingsGetTankSetPoint()   << 4;
@@ -22,8 +19,8 @@ int BoilerMain()
     }
     
     //Control boiler circulation pump
-    int boilerOutput16ths = DS18B20ValueFromRom(CfgBoilerOutputRom);
-    int boilerReturn16ths = DS18B20ValueFromRom(CfgBoilerReturnRom);
+    int boilerOutput16ths = DS18B20ValueFromRom(SettingsGetBoilerOutputRom());
+    int boilerReturn16ths = DS18B20ValueFromRom(SettingsGetBoilerReturnRom());
     int boilerResidual16ths = boilerOutput16ths - boilerReturn16ths;
     bool boilerTempsAreValid =  DS18B20IsValidValue(boilerOutput16ths) && DS18B20IsValidValue(boilerReturn16ths);
 

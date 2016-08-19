@@ -16,7 +16,8 @@ extern int16_t DS18B20ValueFromRom(char* rom);
 
 extern bool DS18B20IsValidValue(int16_t value);
 extern void DS18B20ValueToString(int16_t value, char* buffer);
-extern void DS18B20AddressToString(int device, char* buffer);
+extern void DS18B20AddressToString(char* pAddress, char* buffer);
+extern int  DS18B20ParseAddress(char* pText, char *pAddress);
 
 extern int DS18B20Busy();
 extern int DS18B20Init();

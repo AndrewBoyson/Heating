@@ -2,7 +2,7 @@
 #define REQUEST_BAD_REQUEST 1
 #define REQUEST_BAD_METHOD  2
 #define REQUEST_HOME        3
-#define REQUEST_TIMER       4
+#define REQUEST_PROGRAM     4
 #define REQUEST_HEATING     5
 #define REQUEST_BOILER      6
 #define REQUEST_SYSTEM      7

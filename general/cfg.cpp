@@ -7,17 +7,6 @@
 int    CfgBaud;
 char  *CfgSsid;
 char  *CfgPassword;
-char  *CfgNtpIp;
-
-int    CfgClockSetInterval;
-int    CfgClockSetRetryInterval;
-int    CfgClockOffsetMs;
-int    CfgClockCalibration;
-
-char   CfgTankRom[8];
-char   CfgBoilerOutputRom[8];
-char   CfgBoilerReturnRom[8];
-char   CfgHallRom[8];
 
 static void saveString(char *value, char  **dest) {
     *dest = (char*)realloc(*dest, strlen(value) + 1); //strlen does not include the null so add 1
@@ -30,10 +19,6 @@ static void saveString(char *value, char  **dest) {
 }
 static void saveInt   (char *value, int    *dest) {
     *dest = atoi(value);
-}
-static void saveRom (char *value, char* dest) {
-    char* p = value;
-    for (int i = 0; i < 8; i++) dest[i] = (char)strtoul(p, &p, 16);
 }
 static void rtrim     (int i, char *s) { //i is the length of the thing to trim
     while(1)
@@ -51,16 +36,6 @@ static void handleLine(int n, int v, char *name, char *value)
     if (strcmp(name, "baud"                       ) == 0) saveInt   (value, &CfgBaud);
     if (strcmp(name, "ssid"                       ) == 0) saveString(value, &CfgSsid);
     if (strcmp(name, "password"                   ) == 0) saveString(value, &CfgPassword);
-    if (strcmp(name, "ntp ip"                     ) == 0) saveString(value, &CfgNtpIp);
-    if (strcmp(name, "clock set interval"         ) == 0) saveInt   (value, &CfgClockSetInterval);
-    if (strcmp(name, "clock set retry interval"   ) == 0) saveInt   (value, &CfgClockSetRetryInterval);
-    if (strcmp(name, "clock offset ms"            ) == 0) saveInt   (value, &CfgClockOffsetMs);
-    if (strcmp(name, "clock calibration"          ) == 0) saveInt   (value, &CfgClockCalibration);
-    if (strcmp(name, "tank"                       ) == 0) saveRom   (value,  CfgTankRom);
-    if (strcmp(name, "boiler output"              ) == 0) saveRom   (value,  CfgBoilerOutputRom);
-    if (strcmp(name, "boiler return"              ) == 0) saveRom   (value,  CfgBoilerReturnRom);
-    if (strcmp(name, "hall"                       ) == 0) saveRom   (value,  CfgHallRom);
-    
 }
 static void resetValues(void)
 {
@@ -68,15 +43,6 @@ static void resetValues(void)
                        CfgBaud       = 0;
     free(CfgSsid);     CfgSsid       = NULL;
     free(CfgPassword); CfgPassword   = NULL;
-    free(CfgNtpIp);    CfgNtpIp      = NULL;
-                       CfgClockSetInterval      = 0;
-                       CfgClockSetRetryInterval = 0;
-                       CfgClockOffsetMs         = 0;
-                       CfgClockCalibration      = 0;
-                       memset(CfgTankRom,         0, 8);
-                       memset(CfgBoilerOutputRom, 0, 8);
-                       memset(CfgBoilerReturnRom, 0, 8);
-                       memset(CfgHallRom,         0, 8);
 }
 int CfgInit()   {
 

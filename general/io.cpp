@@ -9,6 +9,10 @@ DigitalOut Led4(LED4);
 
 AnalogIn Bat(p15);
 
+DigitalOut RadiatorPump(p21);
+DigitalOut BoilerPump(p22);
+DigitalOut BoilerCall(p23);
+
 float IoVbat()
 {
     return Bat * VREF;

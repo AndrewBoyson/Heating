@@ -1,18 +1,23 @@
 #include     "mbed.h"
 #include     "http.h"
 #include  "heating.h"
-#include "schedule.h"
+#include  "program.h"
 #include      "log.h"
 #include      "esp.h"
 #include  "request.h"
 #include "response.h"
 #include   "server.h"
 #include "settings.h"
+#include      "cfg.h"
 #include "watchdog.h"
+#include  "ds18b20.h"
+#include      "rtc.h"
+#include       "io.h"
+#include      "ntp.h"
 
 #define RECV_BUFFER_SIZE 512
 static char recvbuffer[RECV_BUFFER_SIZE];
-static char* pE = recvbuffer + RECV_BUFFER_SIZE - 1; //Guarantee have room for null at end of string
+static char* pE = recvbuffer + RECV_BUFFER_SIZE - 1; //Guarantee have room to put a NUL at the end of a string
 
 static char* getNextLine(char* p) //Terminates this line and returns the start of the next line or NULL if none
 {
@@ -116,7 +121,7 @@ static void splitHeader(char* p, char** ppName, char** ppValue)
     *ppValue = p;                       //Record the start of the value
 } 
 int RequestHandle(int id)
-{
+{    
     char* pThis;
     char* pNext;
     char* pMethod;
@@ -153,18 +158,18 @@ int RequestHandle(int id)
             char* pValue;
             pQuery = splitQuery(pQuery, &pName, &pValue);
                         
-            if (strcmp(pName, "autoon" ) == 0) ScheduleAuto = true;
-            if (strcmp(pName, "autooff") == 0) ScheduleAuto = false;
+            if (strcmp(pName, "autoon" ) == 0) ProgramAuto = true;
+            if (strcmp(pName, "autooff") == 0) ProgramAuto = false;
             
-            if (strcmp(pName, "overrideon" ) == 0) ScheduleOverride = true;
-            if (strcmp(pName, "overrideoff") == 0) ScheduleOverride = false;           
+            if (strcmp(pName, "overrideon" ) == 0) ProgramOverride = true;
+            if (strcmp(pName, "overrideoff") == 0) ProgramOverride = false;           
             
         }
         ResponseStart(id, REQUEST_HOME, NULL);
         return 0;
     }
     
-    if (strcmp(pPath, "/timer") == 0)
+    if (strcmp(pPath, "/program") == 0)
     {
         bool   needToSave = !!pQuery;
         while (pQuery)
@@ -176,25 +181,25 @@ int RequestHandle(int id)
             int value = 0;           
             sscanf(pValue, "%d", &value);
                         
-            if (strcmp(pName, "schedule1") == 0) ScheduleParse(0, pValue);
-            if (strcmp(pName, "schedule2") == 0) ScheduleParse(1, pValue);
-            if (strcmp(pName, "schedule3") == 0) ScheduleParse(2, pValue);
+            if (strcmp(pName, "program1") == 0) ProgramParse(0, pValue);
+            if (strcmp(pName, "program2") == 0) ProgramParse(1, pValue);
+            if (strcmp(pName, "program3") == 0) ProgramParse(2, pValue);
             
-            int schedule = value;
-            if (schedule < 1) schedule = 1;
-            if (schedule > 3) schedule = 3;
-            schedule--;
-            if (strcmp(pName, "mon") == 0) ScheduleDay[1] = schedule;
-            if (strcmp(pName, "tue") == 0) ScheduleDay[2] = schedule;
-            if (strcmp(pName, "wed") == 0) ScheduleDay[3] = schedule;
-            if (strcmp(pName, "thu") == 0) ScheduleDay[4] = schedule;
-            if (strcmp(pName, "fri") == 0) ScheduleDay[5] = schedule;
-            if (strcmp(pName, "sat") == 0) ScheduleDay[6] = schedule;
-            if (strcmp(pName, "sun") == 0) ScheduleDay[0] = schedule;
+            int program = value;
+            if (program < 1) program = 1;
+            if (program > 3) program = 3;
+            program--;
+            if (strcmp(pName, "mon") == 0) ProgramDay[1] = program;
+            if (strcmp(pName, "tue") == 0) ProgramDay[2] = program;
+            if (strcmp(pName, "wed") == 0) ProgramDay[3] = program;
+            if (strcmp(pName, "thu") == 0) ProgramDay[4] = program;
+            if (strcmp(pName, "fri") == 0) ProgramDay[5] = program;
+            if (strcmp(pName, "sat") == 0) ProgramDay[6] = program;
+            if (strcmp(pName, "sun") == 0) ProgramDay[0] = program;
             
         }
-        if (needToSave) ScheduleSaveAll();
-        ResponseStart(id, REQUEST_TIMER, NULL);
+        if (needToSave) ProgramSaveAll();
+        ResponseStart(id, REQUEST_PROGRAM, NULL);
         return 0;
     }
     if (strcmp(pPath, "/heating") == 0)
@@ -240,8 +245,46 @@ int RequestHandle(int id)
             char* pName;
             char* pValue;
             pQuery = splitQuery(pQuery, &pName, &pValue);
+
+            int value = 0;
+            sscanf(pValue, "%d", &value);
                         
             if (strcmp(pName, "watchdogflagoff") == 0) WatchdogFlag = false;
+            if (strcmp(pName, "tankrom")         == 0)
+            {
+                char rom[8];
+                int r = DS18B20ParseAddress(pValue, rom);
+                if (!r) SettingsSetTankRom(rom);
+            }
+            if (strcmp(pName, "boileroutputrom") == 0)
+            {
+                char rom[8];
+                int r = DS18B20ParseAddress(pValue, rom);
+                if (!r) SettingsSetBoilerOutputRom(rom);
+            }
+            if (strcmp(pName, "boilerreturnrom") == 0)
+            {
+                char rom[8];
+                int r = DS18B20ParseAddress(pValue, rom);
+                if (!r) SettingsSetBoilerReturnRom(rom);
+            }
+            if (strcmp(pName, "hallrom") == 0)
+            {
+                char rom[8];
+                int r = DS18B20ParseAddress(pValue, rom);
+                if (!r) SettingsSetHallRom(rom);
+            }
+            if (strcmp(pName, "ntpip") == 0)
+            {
+                SettingsSetClockNtpIp(pValue);
+                NtpRequestReconnect();
+            }
+            if (strcmp(pName, "clockinitial" ) == 0) SettingsSetClockInitialInterval(value);
+            if (strcmp(pName, "clocknormal"  ) == 0) SettingsSetClockNormalInterval (value);
+            if (strcmp(pName, "clockretry"   ) == 0) SettingsSetClockRetryInterval  (value);
+            if (strcmp(pName, "clockoffset"  ) == 0) SettingsSetClockOffsetMs       (value);
+            if (strcmp(pName, "calibration"  ) == 0) RtcSetCalibration              (value);
+
         }
         ResponseStart(id, REQUEST_SYSTEM, NULL);
         return 0;

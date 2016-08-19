@@ -1,18 +1,16 @@
-#include <mbed.h>
-#include  "log.h"
-#include  "esp.h"
-#include "wifi.h"
-#include  "rtc.h"
-#include   "io.h"
-#include   "at.h"
-#include  "cfg.h"
+#include     <mbed.h>
+#include      "log.h"
+#include      "esp.h"
+#include     "wifi.h"
+#include      "rtc.h"
+#include       "io.h"
+#include       "at.h"
+#include "settings.h"
 
 #define ERA_BASE     0
 #define ERA_PIVOT 2016
 
-#define ID 0
-
-static Timer timer;
+#define ID 3
 
 struct Packet {
     union
@@ -116,50 +114,145 @@ int handlePacket()
 
     //Set the RTC
     uint64_t ntpTime = ntohll(packet.RecTimeStamp);
-    ntpTime = addMs(ntpTime, CfgClockOffsetMs);
+    ntpTime = addMs(ntpTime, SettingsGetClockOffsetMs());
     setTimeAsNtp(ntpTime);
     
     return 0;
 }
-int NtpIdConnectStatus = AT_NONE;
-static void outgoingMain()
+
+static bool requestReconnect = false;
+void NtpRequestReconnect()
 {
-    if (AtBusy()) return;
-    if (!WifiStarted()) return;
-    
-    static int firstAttempt = true;
-    static int result = AT_NONE;
-         
-    if (NtpIdConnectStatus == AT_SUCCESS)
-    {
-        int retryAfterFailure =  timer.read() > CfgClockSetRetryInterval && result != AT_SUCCESS;
-        int repeat            =  timer.read() > CfgClockSetInterval;
-        
-        if (firstAttempt || retryAfterFailure || repeat)
-        {
-            preparePacket();
-            AtSendData(ID, sizeof(packet), &packet, &result);
-            firstAttempt = false;
-            timer.reset();
-            timer.start();
-        }
-    }
-    else
-    {
-        AtConnectId(ID, "UDP", CfgNtpIp, 123, &packet, sizeof(packet), &NtpIdConnectStatus);
-    }
+    requestReconnect = true;
 }
-static void incomingMain()
+
+enum {
+    AM_DISCONNECTED,
+    AM_CONNECT,
+    AM_CONNECTED,
+    AM_SEND,
+    AM_CLOSE
+};
+enum {
+    INTERVAL_INITIAL,
+    INTERVAL_NORMAL,
+    INTERVAL_RETRY
+};
+
+static Timer intervalTimer;
+static bool intervalComplete(int intervalType)
+{
+    int interval;
+    switch(intervalType)
+    {
+        case INTERVAL_INITIAL: interval = SettingsGetClockInitialInterval(); break;
+        case INTERVAL_NORMAL:  interval = SettingsGetClockNormalInterval();  break;
+        case INTERVAL_RETRY:   interval = SettingsGetClockRetryInterval();   break;
+    }
+    return intervalTimer.read() >= interval;
+}
+
+static int outgoingMain()
+{
+    static int am           = AM_DISCONNECTED;
+    static int result       = AT_NONE;
+    static int intervalType = INTERVAL_INITIAL;
+    
+    if (AtBusy()) return 0;
+    if (!WifiStarted())
+    {
+        am           = AM_DISCONNECTED;
+        result       = AT_NONE;
+        intervalType = INTERVAL_INITIAL;
+        intervalTimer.reset();
+        return 0;
+    }
+    intervalTimer.start();
+    
+    char* ntpIp = SettingsGetClockNtpIp();
+
+    switch (am)
+    {
+        case AM_DISCONNECTED:
+            requestReconnect = false;
+            if (intervalComplete(intervalType) && *ntpIp) am = AM_CONNECT; //Check the ip is not an empty string
+            break;
+        case AM_CONNECT:
+            switch (result)
+            {
+                case AT_NONE:
+                    AtConnectId(ID, "UDP", ntpIp, 123, &packet, sizeof(packet), &result);
+                    break;
+                case AT_SUCCESS:
+                    am = AM_CONNECTED;
+                    result = AT_NONE;
+                    break;
+                default:
+                    intervalType = INTERVAL_RETRY;
+                    intervalTimer.reset();
+                    am = AM_CLOSE;
+                    result = AT_NONE;
+                    break;
+            }
+            break;
+        case AM_CONNECTED:
+            if (intervalComplete(intervalType)) am = AM_SEND;
+            if (requestReconnect)               am = AM_CLOSE;
+            break;
+        case AM_SEND:
+            switch (result)
+            {
+                case AT_NONE:
+                    preparePacket();
+                    AtSendData(ID, sizeof(packet), &packet, &result);
+                    break;
+                case AT_SUCCESS:
+                    intervalType = INTERVAL_NORMAL;
+                    intervalTimer.reset();
+                    am = AM_CONNECTED;
+                    result = AT_NONE;
+                    break;
+                default:
+                    intervalType = INTERVAL_RETRY;
+                    intervalTimer.reset();
+                    am = AM_CONNECTED;
+                    result = AT_NONE;
+                    break;
+            }
+            break;
+        case AM_CLOSE:
+            switch (result)
+            {
+                case AT_NONE:
+                    AtClose(ID, &result);
+                    break;
+                default:
+                    am = AM_DISCONNECTED;
+                    result = AT_NONE;
+                    break;
+            }
+            break;
+        default:
+            LogF("Unknown \'am\' %d", am);
+            return -1;
+    }
+   
+    return 0;
+}
+
+static int incomingMain()
 {
     if (EspDataAvailable == ESP_AVAILABLE && EspIpdId == ID)
     {
         if (EspIpdLength == sizeof(packet)) handlePacket();
         else LogF("Incorrect NTP packet length of %d bytes", EspIpdLength);
     }
+    return 0;
 }
 int NtpMain()
 {
-    outgoingMain();
-    incomingMain();
+    int r;
+    r = outgoingMain(); if (r) return -1;
+    r = incomingMain(); if (r) return -1;
     return 0;
 }

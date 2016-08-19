@@ -9,7 +9,7 @@
 #include      "css.h"
 #include     "ajax.h"
 
-#define SEND_BUFFER_SIZE 1024
+#define SEND_BUFFER_SIZE 2000
 static char sendbuffer[SEND_BUFFER_SIZE];
 static int length;
 
@@ -97,7 +97,7 @@ int ResponseGetNextChunkToSend(int id, int** ppLength, const char** ppBuffer)
         switch(whatToSendToId[id])
         {
             case REQUEST_HOME:        HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
-            case REQUEST_TIMER:       HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
+            case REQUEST_PROGRAM:     HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
             case REQUEST_HEATING:     HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
             case REQUEST_BOILER:      HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
             case REQUEST_SYSTEM:      HttpOk("text/html; charset=utf-8", NULL, "no-cache"); break;
@@ -127,7 +127,7 @@ int ResponseGetNextChunkToSend(int id, int** ppLength, const char** ppBuffer)
     switch(whatToSendToId[id])
     {
         case REQUEST_HOME:        chunkResult = HtmlHome(chunk);         break;
-        case REQUEST_TIMER:       chunkResult = HtmlTimer(chunk);        break;
+        case REQUEST_PROGRAM:     chunkResult = HtmlProgram(chunk);        break;
         case REQUEST_HEATING:     chunkResult = HtmlHeating(chunk);      break;
         case REQUEST_BOILER:      chunkResult = HtmlBoiler(chunk);       break;
         case REQUEST_SYSTEM:      chunkResult = HtmlSystem(chunk);       break;
