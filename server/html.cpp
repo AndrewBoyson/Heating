@@ -1,6 +1,6 @@
 #include     "mbed.h"
 #include      "log.h"
-#include  "ds18b20.h"
+#include   "device.hpp"
 #include      "rtc.h"
 #include     "main.h"
 #include      "cfg.h"
@@ -42,7 +42,7 @@ static char* header =
     "<head>\r\n"
     "<meta name='viewport' content='width=device-width, initial-scale=1'>\r\n"
     "<link rel='icon'       href='/favicon.ico' type='image/x-icon'/>\r\n"
-    "<link rel='stylesheet' href='/styles.css'  type='text/css'    />\r\n"
+    "<link rel='stylesheet' href='/heating.css' type='text/css'    />\r\n"
     "<title>Heating</title>\r\n"
     "</head>\r\n"
     "<body>\r\n";
@@ -395,7 +395,7 @@ int HtmlSystem(int chunk)
         
         ResponseAdd("<h1>Scan times</h1>\r\n");
         addLabelledInt("Program &micro;s", 6, MainScanUs);
-        addLabelledInt("Devices ms",       6, DS18B20ScanMs);
+        addLabelledInt("Devices ms",       6, DeviceScanMs);
 
         ResponseAdd("<h1>Last reset</h1>\r\n");
         if (WatchdogFlag)
@@ -409,9 +409,9 @@ int HtmlSystem(int chunk)
         }
 
         ResponseAdd("<h1>DS18B20 1-wire devices</h1>\r\n");
-        for (int device = 0; device < DS18B20DeviceCount; device++)
+        for (int device = 0; device < DeviceCount; device++)
         {
-            char addressbuffer[DS18B20_ADDRESS_STRING_LENGTH];   DS18B20AddressToString(DS18B20DeviceList + device * 8, addressbuffer);
+            char addressbuffer[DEVICE_ADDRESS_STRING_LENGTH];   DeviceAddressToString(DeviceList + device * 8, addressbuffer);
             char   valuebuffer[DS18B20_VALUE_STRING_LENGTH];     DS18B20ValueToString  (DS18B20Value[device]          , valuebuffer);
             ResponseAddF("<div>%d - %s - %s</div>\r\n", device, addressbuffer, valuebuffer);
         }
@@ -420,13 +420,13 @@ int HtmlSystem(int chunk)
     if (++posn == chunk)
     {
         ResponseAdd("<h1>ROMs</h1>\r\n");
-        char text[DS18B20_ADDRESS_STRING_LENGTH];
+        char text[DEVICE_ADDRESS_STRING_LENGTH];
         
         addFormStart("/system");
-        DS18B20AddressToString(SettingsGetTankRom(),         text); addFormTextInput(0, "Tank",          6, "tankrom",         11, text);
-        DS18B20AddressToString(SettingsGetBoilerOutputRom(), text); addFormTextInput(0, "Boiler output", 6, "boileroutputrom", 11, text);
-        DS18B20AddressToString(SettingsGetBoilerReturnRom(), text); addFormTextInput(0, "Boiler return", 6, "boilerreturnrom", 11, text);
-        DS18B20AddressToString(SettingsGetHallRom(),         text); addFormTextInput(0, "Hall",          6, "hallrom",         11, text);
+        DeviceAddressToString(SettingsGetTankRom(),         text); addFormTextInput(0, "Tank",          6, "tankrom",         11, text);
+        DeviceAddressToString(SettingsGetBoilerOutputRom(), text); addFormTextInput(0, "Boiler output", 6, "boileroutputrom", 11, text);
+        DeviceAddressToString(SettingsGetBoilerReturnRom(), text); addFormTextInput(0, "Boiler return", 6, "boilerreturnrom", 11, text);
+        DeviceAddressToString(SettingsGetHallRom(),         text); addFormTextInput(0, "Hall",          6, "hallrom",         11, text);
         addFormEnd();
         
         return RESPONSE_SEND_CHUNK;

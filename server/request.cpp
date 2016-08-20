@@ -10,7 +10,7 @@
 #include "settings.h"
 #include      "cfg.h"
 #include "watchdog.h"
-#include  "ds18b20.h"
+#include   "device.hpp"
 #include      "rtc.h"
 #include       "io.h"
 #include      "ntp.h"
@@ -253,26 +253,26 @@ int RequestHandle(int id)
             if (strcmp(pName, "tankrom")         == 0)
             {
                 char rom[8];
-                int r = DS18B20ParseAddress(pValue, rom);
-                if (!r) SettingsSetTankRom(rom);
+                DeviceParseAddress(pValue, rom);
+                SettingsSetTankRom(rom);
             }
             if (strcmp(pName, "boileroutputrom") == 0)
             {
                 char rom[8];
-                int r = DS18B20ParseAddress(pValue, rom);
-                if (!r) SettingsSetBoilerOutputRom(rom);
+                DeviceParseAddress(pValue, rom);
+                SettingsSetBoilerOutputRom(rom);
             }
             if (strcmp(pName, "boilerreturnrom") == 0)
             {
                 char rom[8];
-                int r = DS18B20ParseAddress(pValue, rom);
-                if (!r) SettingsSetBoilerReturnRom(rom);
+                DeviceParseAddress(pValue, rom);
+                SettingsSetBoilerReturnRom(rom);
             }
             if (strcmp(pName, "hallrom") == 0)
             {
                 char rom[8];
-                int r = DS18B20ParseAddress(pValue, rom);
-                if (!r) SettingsSetHallRom(rom);
+                DeviceParseAddress(pValue, rom);
+                SettingsSetHallRom(rom);
             }
             if (strcmp(pName, "ntpip") == 0)
             {
@@ -304,7 +304,7 @@ int RequestHandle(int id)
         ResponseStart(id, REQUEST_ICO, pLastModified);
         return 0;
     }
-    if (strcmp(pPath, "/styles.css") == 0)
+    if (strcmp(pPath, "/heating.css") == 0)
     {
         ResponseStart(id, REQUEST_CSS, pLastModified);
         return 0;

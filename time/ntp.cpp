@@ -139,8 +139,9 @@ enum {
     INTERVAL_RETRY
 };
 
-static Timer intervalTimer;
-static bool intervalComplete(int intervalType)
+static int timeStart;
+static int intervalType;
+static bool intervalComplete()
 {
     int interval;
     switch(intervalType)
@@ -149,25 +150,27 @@ static bool intervalComplete(int intervalType)
         case INTERVAL_NORMAL:  interval = SettingsGetClockNormalInterval();  break;
         case INTERVAL_RETRY:   interval = SettingsGetClockRetryInterval();   break;
     }
-    return intervalTimer.read() >= interval;
+    return time(NULL) - timeStart >= interval;
+}
+static void startInterval(int type)
+{
+    timeStart = time(NULL);
+    intervalType = type;
 }
 
 static int outgoingMain()
 {
-    static int am           = AM_DISCONNECTED;
-    static int result       = AT_NONE;
-    static int intervalType = INTERVAL_INITIAL;
+    static int am     = AM_DISCONNECTED;
+    static int result = AT_NONE;
     
     if (AtBusy()) return 0;
     if (!WifiStarted())
     {
         am           = AM_DISCONNECTED;
         result       = AT_NONE;
-        intervalType = INTERVAL_INITIAL;
-        intervalTimer.reset();
+        startInterval(INTERVAL_INITIAL);
         return 0;
     }
-    intervalTimer.start();
     
     char* ntpIp = SettingsGetClockNtpIp();
 
@@ -175,7 +178,7 @@ static int outgoingMain()
     {
         case AM_DISCONNECTED:
             requestReconnect = false;
-            if (intervalComplete(intervalType) && *ntpIp) am = AM_CONNECT; //Check the ip is not an empty string
+            if (intervalComplete() && *ntpIp) am = AM_CONNECT; //Check the ip is not an empty string
             break;
         case AM_CONNECT:
             switch (result)
@@ -188,16 +191,15 @@ static int outgoingMain()
                     result = AT_NONE;
                     break;
                 default:
-                    intervalType = INTERVAL_RETRY;
-                    intervalTimer.reset();
+                    startInterval(INTERVAL_RETRY);
                     am = AM_CLOSE;
                     result = AT_NONE;
                     break;
             }
             break;
         case AM_CONNECTED:
-            if (intervalComplete(intervalType)) am = AM_SEND;
-            if (requestReconnect)               am = AM_CLOSE;
+            if (intervalComplete()) am = AM_SEND;
+            if (requestReconnect)   am = AM_CLOSE;
             break;
         case AM_SEND:
             switch (result)
@@ -207,14 +209,12 @@ static int outgoingMain()
                     AtSendData(ID, sizeof(packet), &packet, &result);
                     break;
                 case AT_SUCCESS:
-                    intervalType = INTERVAL_NORMAL;
-                    intervalTimer.reset();
+                    startInterval(INTERVAL_NORMAL);
                     am = AM_CONNECTED;
                     result = AT_NONE;
                     break;
                 default:
-                    intervalType = INTERVAL_RETRY;
-                    intervalTimer.reset();
+                    startInterval(INTERVAL_RETRY);
                     am = AM_CONNECTED;
                     result = AT_NONE;
                     break;
