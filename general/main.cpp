@@ -10,8 +10,8 @@
 #include   "server.h"
 #include     "wifi.h"
 #include     "uart.h"
-#include   "1-wire.h"
-#include  "ds18b20.h"
+#include   "1-wire.hpp"
+#include   "device.hpp"
 #include  "heating.h"
 #include "watchdog.h"
 #include "settings.h"
@@ -40,7 +40,7 @@ int main()
     r =      NtpInit();
     r =   ServerInit(); //Call this after any connections (ntp) are reserved
     r =  OneWireInit();
-    r =  DS18B20Init();
+    r =   DeviceInit();
     r =  HeatingInit();
     r = WatchdogInit();
            
@@ -54,7 +54,7 @@ int main()
         SettingsSetProgramPosition(4); r =      NtpMain(); if (r) break;
         SettingsSetProgramPosition(5); r =   ServerMain(); if (r) break;
         SettingsSetProgramPosition(6); r =  OneWireMain(); if (r) break;
-        SettingsSetProgramPosition(7); r =  DS18B20Main(); if (r) break;
+        SettingsSetProgramPosition(7); r =   DeviceMain(); if (r) break;
         SettingsSetProgramPosition(8); r =  HeatingMain(); if (r) break;
         SettingsSetProgramPosition(9); r = WatchdogMain(); if (r) break;
         

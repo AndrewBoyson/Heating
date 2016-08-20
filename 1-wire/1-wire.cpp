@@ -1,10 +1,10 @@
 #include       "mbed.h"
 #include        "log.h"
 #include         "io.h"
-#include "1-wire-bus.h"
-#include     "1-wire.h"
+#include "1-wire-bus.hpp"
+#include     "1-wire.hpp"
 
-#define DEBUG false //Set to true to add debug messages to the log
+#define DEBUG true //Set to true to add debug messages to the log
 
 #define BUS_TIMEOUT_MS 5000
 static Timer busytimer;
@@ -138,24 +138,46 @@ static int chooseDirectionToTake()
     //Both bits are zero so devices with both 0s and 1s at this point are still participating
     
     //If we have not yet reached the furthest away point we forked left (0) last time then just do whatever we did last time
-    if (searchBitPosn <  lastFurthestForkLeftPosn) return getRomBit(searchBitPosn);
+    if (searchBitPosn <  lastFurthestForkLeftPosn)
+    {
+        int romBit = getRomBit(searchBitPosn);
+        if (DEBUG) LogF("Bit %d:%d Last rom forked further on so follow it.", searchBitPosn, romBit);
+        if (romBit == 0)
+        {
+            thisFurthestForkLeftPosn = searchBitPosn;
+            if (DEBUG) LogF(" Record furthest left fork.");
+        }
+        if (DEBUG) LogF("\r\n");
+        return romBit;
+    }
     
     //If we are at the furthest away point that we forked left (0) last time then this time fork right (1)
-    if (searchBitPosn == lastFurthestForkLeftPosn) return 1;
+    if (searchBitPosn == lastFurthestForkLeftPosn)
+    {
+        if (DEBUG) LogF("Bit %d:1 Last rom forked left here so this time fork right.\r\n");
+        return 1;
+    }
     
     //We are at a new fork point further than we have been before so fork left (0) and record that we did so.
     thisFurthestForkLeftPosn = searchBitPosn;
+    if (DEBUG) LogF("Bit %d:0 New fork so fork left. Record furthest left fork.\r\n", searchBitPosn);
     return 0; 
 }
 void OneWireSearch(char command, char* pDeviceRom, int* pAllDevicesFound) //Specify the buffer to receive the rom for the first search and NULL thereafter.
 {
     if (pDeviceRom)
     {
+        if (DEBUG) LogCrLf("");
+        if (DEBUG) LogCrLf("Search for first device");
         pallfound = pAllDevicesFound;
         *pallfound = false;
         lastFurthestForkLeftPosn = -1;
         prom = pDeviceRom;
         for (int i = 0; i < 8; i++) *(prom + i) = 0;
+    }
+    else
+    {
+        LogCrLf("Search for next device");
     }
     thisFurthestForkLeftPosn = -1;
     lensend = 1;
@@ -284,7 +306,6 @@ int OneWireMain()
             break;
         case HANDLE_SEARCH_READ_BIT_COMP:
             searchBitComp = OneWireBusValue;
-            if (DEBUG) LogF("%d%d - ", searchBitTrue, searchBitComp);
             int direction;
             direction = chooseDirectionToTake();
             if (direction == -1)
@@ -295,7 +316,6 @@ int OneWireMain()
             }
             else
             {
-                if (DEBUG) LogF(" %d -> %d\r\n", direction, searchBitPosn);
                 setRomBit(searchBitPosn, direction);
                 OneWireBusWriteBit(direction);
                 searchBitPosn++;
@@ -305,7 +325,11 @@ int OneWireMain()
                 }
                 else
                 {
-                    if (thisFurthestForkLeftPosn == -1) *pallfound = true;
+                    if (thisFurthestForkLeftPosn == -1)
+                    {
+                         if (DEBUG) LogCrLf("All devices found");
+                         *pallfound = true;
+                    }
                     lastFurthestForkLeftPosn = thisFurthestForkLeftPosn;
                     result = ONE_WIRE_RESULT_OK;
                     state = WAIT_FOR_SOMETHING_TO_DO;
