@@ -1,6 +1,7 @@
 #include     "mbed.h"
 #include      "log.h"
 #include   "device.hpp"
+#include  "ds18b20.hpp"
 #include      "rtc.h"
 #include     "main.h"
 #include      "cfg.h"
@@ -291,9 +292,9 @@ int HtmlHeating(int chunk)
     {        
         ResponseAdd("<h1>Inputs</h1>\r\n");
         int16_t temp = DS18B20ValueFromRom(SettingsGetHallRom());
-        addLabelledTemperature("Hall"   , 10, temp);
-        addLabelledOnOff("Winter mode"  , 10, ProgramAuto);
-        addLabelledOnOff("Heating timer", 10, ProgramIsCalling);
+        addLabelledTemperature("Hall"     , 10, temp);
+        addLabelledOnOff("Winter mode"    , 10, ProgramAuto);
+        addLabelledOnOff("Heating program", 10, ProgramIsCalling);
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)

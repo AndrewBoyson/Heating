@@ -1,18 +1,17 @@
-1 bits on/off
-3 bits day of week
-8 bits 3600 / 256 = 240 x 15 minute intervals
+Real Time Clock is set in UTC.
 
-5 x 64 bits = 320 bits
-320 / 12 = 26 entries
-Need 4 for weekdays and 2 for weekends ==> 24
+RtcSet and RtcGet use a uint64_t count of seconds since 1970 with a decimal point at RTC_RESOLUTION_BITS 11.
+This gives a resolution of half a millisecond and a maximum count at 300 million years into the future.
 
-Or
+Setting the RTC
+===============
+set_time works but does not set day of week which renders it useless for a central heating controller unless localtime is used
+(which provides utc not local time; gmtime does not work) but that means that to get the day of week would require a round trip
+from RTC (pretty much a struct tm) to a count of seconds only to go back to a struct tm.
+RtcSet uses TimeToTmUtc(wholeseconds, &tm) to properly configure the RTC. It also takes the fractional part of the second to initialise a one second timer.
 
-1 bits on/off
-1 bits weekday or weekend
-8 bits 3600 / 256 = 240 x 15 minute intervals
-
-5 x 64 bits = 320 bits
-320 / 10 = 32 entries
-Need 4 for weekdays and 2 for weekends ==> 6
- 
+Getting time from the RTC
+=========================
+uint64_t RtcGet();                      //Returns the count of seconds plus the fractional part from timer1.
+void     RtcGetTmUtc(struct tm* ptm);   //Very quick map of RTC registers to a struct tm
+void     RtcGetTmLocal(struct tm* ptm); //A struct tm adjusted for the local timezone

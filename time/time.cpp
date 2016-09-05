@@ -20,13 +20,16 @@ int TimeAsciiDateTimeToTm(const char* pDate, const char* pTime, struct tm* ptm)
     
     return 0;
 }
-static int isLeapYear(int year)
+static bool isLeapYear(int year)
 {
-    int leapYear = false;
-    if (year %   4 == 0) leapYear =  true;
-    if (year % 100 == 0) leapYear = false;
-    if (year % 400 == 0) leapYear =  true;
+    bool leapYear = !(year & 0x3);
+    if (year >= 2100)
+    {
+        if (year % 100 == 0) leapYear = false;
+        if (year % 400 == 0) leapYear =  true;
+    }
     return leapYear;
+
 }
 static int monthLength(int year, int month)
 {
@@ -139,12 +142,12 @@ static void addMonths(int year, int* pMonth, int* pDaysLeft)
         ++*pMonth;
     }
 }
-static void timeToTm(time_t time, struct tm* ptm, int local)
+static void timeToTm(time_t t, struct tm* ptm, int local)
 {
-    int seconds  = time % 60; time /= 60;
-    int minutes  = time % 60; time /= 60;
-    int hours    = time % 24; time /= 24;
-    int daysLeft = time;
+    int seconds  = t % 60; t /= 60;
+    int minutes  = t % 60; t /= 60;
+    int hours    = t % 24; t /= 24;
+    int daysLeft = t;
     
     //Add a year at a time while there is more than a year of days left
     int year      = 1970; //Unix epoch is 1970
@@ -190,7 +193,6 @@ static void timeToTm(time_t time, struct tm* ptm, int local)
     ptm->tm_yday  = dayOfYear - 1; // 0 --> 365
     ptm->tm_isdst = dst;           // +ve if DST, 0 if not DSTime, -ve if the information is not available. Note that 'true' evaluates to +1.
 }
-
 void TimeToTmUtc(time_t time, struct tm* ptm)
 {
     timeToTm(time, ptm, false);
@@ -200,6 +202,21 @@ void TimeToTmLocal(time_t time, struct tm* ptm)
 {
     timeToTm(time, ptm, true);
 }
+
+time_t TimeFromTmUtc(struct tm* ptm)
+{
+    //Set up the broken time TM structure
+    int seconds    = ptm->tm_sec;         // 00 --> 59
+    int minutes    = ptm->tm_min;         // 00 --> 59
+    int hours      = ptm->tm_hour;        // 00 --> 23
+    int year       = ptm->tm_year + 1900; // Years since 1900
+    int dayOfYear  = ptm->tm_yday;        // 0 --> 365
+
+    int days = dayOfYear;
+    for (int y = 1970; y < year; y++) days += isLeapYear(y) ? 366 : 365;
+    return days * 86400 + hours * 3600 + minutes * 60 + seconds;
+}
+
 void TimeTmUtcToLocal(struct tm* ptm)
 {
     //Adjust months from 00-11 to 01-12 and years to 1900

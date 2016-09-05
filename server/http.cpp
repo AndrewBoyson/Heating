@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "http.h"
 #include "time.h"
+#include  "rtc.h"
 #include "response.h"
 
 static void dateHeaderFromTm(struct tm* ptm, char* ptext)
@@ -9,9 +10,9 @@ static void dateHeaderFromTm(struct tm* ptm, char* ptext)
 }
 void dateHeaderNow(char* ptext)
 {
-    time_t now = time(NULL);
-    struct tm* ptm = localtime(&now);
-    dateHeaderFromTm(ptm, ptext);
+    struct tm tm;
+    RtcGetTmUtc(&tm);
+    dateHeaderFromTm(&tm, ptext);
 }
 void HttpMakeDate(const char* date, const char *ptime, char* ptext)
 {
