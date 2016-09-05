@@ -51,7 +51,7 @@ static int sendMain()
         case SERVER_NOTHING_TO_SEND:
             break;
         case SERVER_SEND_DATA:
-            AtSendData(id, *pLength, pBuffer, NULL);
+            if (*pLength) AtSendData(id, *pLength, pBuffer, NULL);
             return 0;
         case SERVER_CLOSE_CONNECTION:
             AtClose(id, NULL);

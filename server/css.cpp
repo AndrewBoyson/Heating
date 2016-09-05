@@ -4,7 +4,7 @@ const char* Css =
 "\r\n"
 "*                  { font-family:'Segoe UI', Calibri, Arial, sans-serif; }\r\n"
 "body               { margin-left:6em; line-height:1.1em; padding:0; border:0; }\r\n"
-"h1                 { color:darkblue; font-size:120%; font-weight:normal; margin-bottom:0.2em; }\r\n"
+"h1                 { color:darkblue; font-size:120%; font-weight:normal; margin-bottom:0.3em; }\r\n"
 "a                  { text-decoration:none; }\r\n"
 "div                { line-height:1.2em; }\r\n"
 "form               { line-height:1.2em; }\r\n"

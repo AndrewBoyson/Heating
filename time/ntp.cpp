@@ -101,7 +101,6 @@ int preparePacket()
 }
 int handlePacket()
 {        
-    
     //Handle the reply  
     char leap    = packet.LI;
     char version = packet.VN;
@@ -139,22 +138,23 @@ enum {
     INTERVAL_RETRY
 };
 
-static int timeStart;
+static uint64_t timeStart;
 static int intervalType;
 static bool intervalComplete()
 {
-    int interval;
+    uint64_t interval;
     switch(intervalType)
     {
         case INTERVAL_INITIAL: interval = SettingsGetClockInitialInterval(); break;
         case INTERVAL_NORMAL:  interval = SettingsGetClockNormalInterval();  break;
         case INTERVAL_RETRY:   interval = SettingsGetClockRetryInterval();   break;
     }
-    return time(NULL) - timeStart >= interval;
+    interval <<= RTC_RESOLUTION_BITS;
+    return RtcGet() - timeStart >= interval;
 }
 static void startInterval(int type)
 {
-    timeStart = time(NULL);
+    timeStart = RtcGet();
     intervalType = type;
 }
 
@@ -209,7 +209,7 @@ static int outgoingMain()
                     AtSendData(ID, sizeof(packet), &packet, &result);
                     break;
                 case AT_SUCCESS:
-                    startInterval(INTERVAL_NORMAL);
+                    startInterval(INTERVAL_RETRY); //Start interval is set to normal when packet is successfully received
                     am = AM_CONNECTED;
                     result = AT_NONE;
                     break;
@@ -244,8 +244,14 @@ static int incomingMain()
 {
     if (EspDataAvailable == ESP_AVAILABLE && EspIpdId == ID)
     {
-        if (EspIpdLength == sizeof(packet)) handlePacket();
-        else LogF("Incorrect NTP packet length of %d bytes", EspIpdLength);
+        if (EspIpdLength == sizeof(packet))
+        {
+            if (!handlePacket()) startInterval(INTERVAL_NORMAL); //Set the next retry as normal after successful reply
+        }
+        else
+        {
+            LogF("Incorrect NTP packet length of %d bytes", EspIpdLength);
+        }
     }
     return 0;
 }

@@ -4,7 +4,7 @@
 #include "1-wire-bus.hpp"
 #include     "1-wire.hpp"
 
-#define DEBUG true //Set to true to add debug messages to the log
+#define DEBUG false //Set to true to add debug messages to the log
 
 #define BUS_TIMEOUT_MS 5000
 static Timer busytimer;
@@ -177,7 +177,7 @@ void OneWireSearch(char command, char* pDeviceRom, int* pAllDevicesFound) //Spec
     }
     else
     {
-        LogCrLf("Search for next device");
+        if (DEBUG) LogCrLf("Search for next device");
     }
     thisFurthestForkLeftPosn = -1;
     lensend = 1;

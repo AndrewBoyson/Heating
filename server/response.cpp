@@ -127,7 +127,7 @@ int ResponseGetNextChunkToSend(int id, int** ppLength, const char** ppBuffer)
     switch(whatToSendToId[id])
     {
         case REQUEST_HOME:        chunkResult = HtmlHome(chunk);         break;
-        case REQUEST_PROGRAM:     chunkResult = HtmlProgram(chunk);        break;
+        case REQUEST_PROGRAM:     chunkResult = HtmlProgram(chunk);      break;
         case REQUEST_HEATING:     chunkResult = HtmlHeating(chunk);      break;
         case REQUEST_BOILER:      chunkResult = HtmlBoiler(chunk);       break;
         case REQUEST_SYSTEM:      chunkResult = HtmlSystem(chunk);       break;
