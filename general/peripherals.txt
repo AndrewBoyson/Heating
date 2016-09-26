@@ -1,0 +1,4 @@
+Timer0 is used by 1-wire-bus
+Timer1 is used by rtc
+Timer2 is not used
+Timer3 is used by the system for timers, waits etc.

@@ -1,68 +1,94 @@
-#include "mbed.h"
-#include  "cfg.h"
-#include  "log.h"
-#include   "io.h"
-#include "time.h"
-#include  "rtc.h"
+#include     "mbed.h"
+#include      "cfg.h"
+#include      "log.h"
+#include       "io.h"
+#include "settings.h"
+#include     "time.hpp"
+#include      "rtc.hpp"
+#include  "rtc-cal.hpp"
 
-static int fractionalPartOfSetTime; //Initialised to -1 then will be non-negative once the fractional part of the clock is set.
-static uint64_t lastSet = 0;        //Set when time is set, unset if calibration match value changed manually. Used to determine calibration value.
+static struct tm stm;
+static void getstm()
+{
+    stm.tm_sec    = LPC_RTC->SEC; //Make sure have had at least 8 cycles
+    stm.tm_sec    = LPC_RTC->SEC;
+    stm.tm_sec    = LPC_RTC->SEC;
+    stm.tm_sec    = LPC_RTC->SEC;
+    stm.tm_min    = LPC_RTC->MIN;
+    stm.tm_hour   = LPC_RTC->HOUR;
+    stm.tm_mday   = LPC_RTC->DOM;
+    stm.tm_mon    = LPC_RTC->MONTH - 1;
+    stm.tm_year   = LPC_RTC->YEAR  - 1900;
+    stm.tm_wday   = LPC_RTC->DOW;
+    stm.tm_yday   = LPC_RTC->DOY   - 1;
+    stm.tm_isdst  = -1; // -ve should signify that dst data is not available but it is used here to denote UTC
+}
+static void setstm()
+{
+    LPC_RTC->SEC     = stm.tm_sec;         // 0 --> 59
+    LPC_RTC->MIN     = stm.tm_min;         // 0 --> 59
+    LPC_RTC->HOUR    = stm.tm_hour;        // 0 --> 23
+    LPC_RTC->DOM     = stm.tm_mday;        // 1 --> 31
+    LPC_RTC->MONTH   = stm.tm_mon  + 1;    // rtc    1 -->   12; tm 0 -->  11
+    LPC_RTC->YEAR    = stm.tm_year + 1900; // rtc 1900 --> 2100; tm 0 --> 200
+    LPC_RTC->DOW     = stm.tm_wday;        // 0 --> 6 where 0 == Sunday
+    LPC_RTC->DOY     = stm.tm_yday + 1;    // rtc 1 --> 366;     tm 0 --> 365 
+}
+static int  getRtcIsSet() { return (LPC_RTC->RTC_AUX & 0x10) == 0; } //27.6.2.5 RTC Auxiliary control register - RTC Oscillator Fail detect flag
+static void setRtcIsSet() {         LPC_RTC->RTC_AUX = 0x10;       } //27.6.2.5 RTC Auxiliary control register - RTC Oscillator Fail detect flag - Writing a 1 to this bit clears the flag.
 
+static int getFraction()  { return LPC_TIM1->TC; } //21.6.4 Timer Counter register
+
+static void stopAndResetFraction() { LPC_TIM1->TCR =     2; } //Clear  the fractional part count   - 21.6.2 Timer Control Register - Reset  TC and PC.
+static void releaseFraction()      { LPC_TIM1->TCR =     1; } //Enable the fractional part counter - 21.6.2 Timer Control Register - Enable TC and PC
+static void stopAndResetClock()    { LPC_RTC->CCR  =  0x12; } //Stop  the clock (CLKEN bit 0 = 0); reset   the divider (CTCRST bit 1 = 1); stop and reset the calibration counter (CCALEN bit 4 = 1)
+static void releaseClock()         { LPC_RTC->CCR  =     1; } //Start the clock (CLKEN bit 0 = 1); release the divider (CTCRST bit 1 = 0); release the calibration counter (CCALEN bit 4 = 0)
+
+static volatile bool hadOneSecondIncrement = false;
 
 static void rtcInterrupt()
 {
-    if (LPC_RTC->ILR & 1)
+    if (LPC_RTC->ILR & 1) //A counter has incremented
     {
-        LPC_TIM1->TCR = 2; // 21.6.2 Timer Control Register - Reset TC and PC
-        LPC_TIM1->TCR = 1; // 21.6.2 Timer Control Register - Enable TC and PC
+        hadOneSecondIncrement = true;
         LPC_RTC->ILR = 1;  // 27.6.2.1 Interrupt Location Register - Clear interrupt by writing a 1 to bit 0
     }
-    if (LPC_RTC->ILR & 2)
+    
+    if (LPC_RTC->ILR & 2) //An alarm has matched
     {
         LPC_RTC->ILR = 2;  // 27.6.2.1 Interrupt Location Register - Clear interrupt by writing a 1 to bit 1
     }
 }
-
-static void setCalibration(int value) //-ve means skip a second each match seconds; +ve means add two seconds each match seconds
+int RtcMain()
 {
-    LPC_RTC->CALIBRATION = (value >= 0) ? value & 0x1FFFF : -value & 0x1FFFF | 0x20000;
-}
-int RtcGetCalibration()
-{
-    int calval = LPC_RTC->CALIBRATION & 0x1FFFF; //27.6.4.2 Calibration register
-    int caldir = LPC_RTC->CALIBRATION & 0x20000; //Backward calibration. When CALVAL is equal to the calibration counter, the RTC timers will stop incrementing for 1 second.
+    if (!hadOneSecondIncrement) return 0;
+    hadOneSecondIncrement = false;
     
-    return caldir ? -calval : calval;
-}
-void RtcSetCalibration(int value)
-{
-    lastSet = 0;
-    setCalibration(value);
-}
-int RtcWholePartIsSet()
-{
-    return (LPC_RTC->RTC_AUX & 0x10) == 0; //27.6.2.5 RTC Auxiliary control register - RTC Oscillator Fail detect flag
-}
-int RtcFractionalPartIsSet()
-{
-    return fractionalPartOfSetTime >= 0;
-}
+    //Fetch the RTC
+    getstm();
+    int fraction = getFraction();
 
-static void stopAndReset()
-{
-    LPC_RTC->CCR      =  0x12; //Stop the clock (CLKEN bit 0 = 0); reset the divider (CTCRST bit 1 = 1); stop and reset the calibration counter (CCALEN bit 4 = 1)
-    LPC_TIM1->TCR     =     2; //Clear the fractional part count    - 21.6.2 Timer Control Register - Reset  TC and PC.
-}
-static void release()
-{
-    LPC_RTC->CCR      =     1; //Start the clock (CLKEN bit 0 = 1); release the divider (CTCRST bit 1 = 0); release the calibration counter (CCALEN bit 4 = 0)
-    LPC_TIM1->TCR     =     1; //Enable the fractional part counter -  21.6.2 Timer Control Register - Enable TC and PC
+    //Reset the timer
+    stopAndResetFraction();
+
+     //Allow calibration to determine if a second has been lost or not.
+    RtcCalSecondsHandler(stm.tm_sec, fraction);
+    
+    //Reenable the timer
+    releaseFraction();
+    
+    return 0;
 }
 int RtcInit()
 {
-    stopAndReset();
+    //Do very first time set up
+    if (!getRtcIsSet())
+    {
+        stopAndResetClock();
+        SettingsSetRtcFraction(0);
+    }
     
-    //Set up the real time clock which handles whole seconds    
+    //Set up the real time clock to handle whole seconds    
     LPC_RTC->AMR       = 0xFF;    //27.6.2.4 Alarm Mask Register - mask all alarms
     LPC_RTC->RTC_AUXEN =    0;    //27.6.2.6 RTC Auxiliary Enable register - mask the oscillator stopped interrupt
     LPC_RTC->ILR       =    3;    //27.6.2.1 Interrupt Location Register - Clear all interrupts
@@ -70,7 +96,10 @@ int RtcInit()
     NVIC_SetVector(RTC_IRQn, (uint32_t)&rtcInterrupt);
     NVIC_EnableIRQ(RTC_IRQn);     //Allow the fractional part to be reset at the end of a second including any pending
 
-    //Set up timer 1 to handle the fractional part and leave stopped until the time is set
+
+    //Set up timer 1 to handle the fractional part
+    stopAndResetFraction();
+
     int pre = 96000000 / (1 << RTC_RESOLUTION_BITS) - 1;
     int max = (1 << RTC_RESOLUTION_BITS) - 1;
     
@@ -79,126 +108,80 @@ int RtcInit()
     LPC_SC->PCONP    |=     4;    //  4.8.9 Power Control for Peripherals register - Timer1 Power On
     LPC_TIM1->CTCR    =     0;    // 21.6.3 Count Control Register - Timer mode
     LPC_TIM1->PR      =   pre;    // 21.6.5 Prescale register      - Prescale 96MHz clock to 1s == 2048 (divide by PR+1).
-    LPC_TIM0->MR0     =   max;    // 21.6.7 Match Register 0       - Match count
+    LPC_TIM1->MR0     =   max;    // 21.6.7 Match Register 0       - Match count
     LPC_TIM1->MCR     =     0;    // 21.6.8 Match Control Register - Do nothing when matched
     
-    fractionalPartOfSetTime = -1; //Label the fractional part as not being set
-    lastSet = 0;
+    //Initialise one second handler
+    hadOneSecondIncrement = false;
     
-    release();
+    //Set up the calibration
+    RtcCalInit();                 //Set up the calibration side
+    
+    //Release clock and fraction timer
+    releaseClock();
+    releaseFraction();
    
     return 0;
 }
-static void getTmUtc(struct tm* ptm)
+void RtcSet(uint64_t act)
 {
-    ptm->tm_sec   =  LPC_RTC->SEC   & 0x03F;         //  6 bits 00 --> 59
-    ptm->tm_min   =  LPC_RTC->MIN   & 0x03F;         //  6 bits 00 --> 59
-    ptm->tm_hour  =  LPC_RTC->HOUR  & 0x01F;         //  5 bits 00 --> 23
-    ptm->tm_mday  =  LPC_RTC->DOM   & 0x01F;         //  5 bits 01 --> 31
-    ptm->tm_mon   = (LPC_RTC->MONTH & 0x00F) - 1;    //  4 bits 00 --> 11
-    ptm->tm_year  = (LPC_RTC->YEAR  & 0xFFF) - 1900; // 12 bits Years since 1900
-    ptm->tm_wday  =  LPC_RTC->DOW   & 0x007;         //  3 bits 0 --> 6 where 0 == Sunday
-    ptm->tm_yday  = (LPC_RTC->DOY   & 0x1FF) - 1;    //  9 bits 0 --> 365
-    ptm->tm_isdst = -1;                              //  +ve if DST, 0 if not DST, -ve if the information is not available. Note that 'true' evaluates to +1.
-}
-static void setTmUtc(struct tm* ptm)
-{
-    LPC_RTC->SEC      = ptm->tm_sec;         // 00 --> 59
-    LPC_RTC->MIN      = ptm->tm_min;         // 00 --> 59
-    LPC_RTC->HOUR     = ptm->tm_hour;        // 00 --> 23
-    LPC_RTC->DOM      = ptm->tm_mday;        // 01 --> 31
-    LPC_RTC->MONTH    = ptm->tm_mon  + 1;    // 00 --> 11
-    LPC_RTC->YEAR     = ptm->tm_year + 1900; // Years since 1900
-    LPC_RTC->DOW      = ptm->tm_wday;        // 0 --> 6 where 0 == Sunday
-    LPC_RTC->DOY      = ptm->tm_yday + 1;    // 0 --> 365
-    LPC_RTC->RTC_AUX  = 0x10;                // Record the RTC is set - 27.6.2.5 RTC Auxiliary control register - RTC Oscillator Fail detect flag - Writing a 1 to this bit clears the flag.
+    
+    //Record the RTC time before it is changed ready for use by the calibration after the change
+    uint64_t rtc = RtcGet();
+    
+    //Set the RTC time
+    stopAndResetClock();
+    stopAndResetFraction();
+        
+    int fraction = act & ((1 << RTC_RESOLUTION_BITS) - 1); //Record the remaining fraction of a second not set in the RTC
+    SettingsSetRtcFraction(fraction);
+    int wholeseconds = act >> RTC_RESOLUTION_BITS;         //Set the RTC to the whole number of seconds in the time
+    
+    TimeToTmUtc(wholeseconds, &stm);
+    setstm();  
+    setRtcIsSet();
+    if (LPC_RTC->SEC != stm.tm_sec || LPC_RTC->MIN != stm.tm_min || LPC_RTC->HOUR != stm.tm_hour) LogF("RTC value did not set %d:%d:%d\r\n", stm.tm_hour, stm.tm_min, stm.tm_sec); 
+
+    
+    LogF("%04d-%03d %02d:%02d:%02d\r\n", stm.tm_year + 1900, stm.tm_yday, stm.tm_hour, stm.tm_min, stm.tm_sec);
+    
+    releaseClock();
+    releaseFraction();
+    
+    //Adjust the calibration and send the seconds after the change
+    RtcCalTimeSetHandler(rtc, act, stm.tm_sec);
+
 }
 uint64_t RtcGet()
 {
-    if (!RtcWholePartIsSet()) return 0;     //Bomb out with a value of zero if the RTC is not set
-
-    struct tm tm;
-    int fraction;
+    if (!getRtcIsSet()) return 0;      //Bomb out with a value of zero if the RTC is not set
     
-    getTmUtc(&tm);                          //Read the time and fraction
-    fraction = LPC_TIM1->TC;
-    
-    if ((LPC_RTC->SEC & 0x3F) != tm.tm_sec) //Check if the clock has incremented
-    {
-        getTmUtc(&tm);                      //If so then read the time again
-        fraction = LPC_TIM1->TC;
-    }
-    
-    uint64_t t = TimeFromTmUtc(&tm);
-    t <<= RTC_RESOLUTION_BITS;             //Move the seconds to the left of the decimal point
-    if (RtcFractionalPartIsSet())          //Add remaining fraction of a second if it has been set
-    {
-        t += fractionalPartOfSetTime;
-    }
-    t += fraction;                        //Add the fractional part - 21.6.4 Timer Counter register
+    uint64_t t = TimeFromTmUtc(&stm);   //Convert struct tm to a time_t and put into 64 bits
+    t <<= RTC_RESOLUTION_BITS;         //Move the seconds to the left of the decimal point
+    t += SettingsGetRtcFraction();     //Add remaining fraction of a second if it has been set
+    t += getFraction();                //Add the fractional part - 21.6.4 Timer Counter register
     
     return t;
 }
+static void getCopyTm(struct tm* ptm)
+{
+    ptm->tm_sec   = stm.tm_sec;
+    ptm->tm_min   = stm.tm_min;
+    ptm->tm_hour  = stm.tm_hour;
+    ptm->tm_mday  = stm.tm_mday;
+    ptm->tm_mon   = stm.tm_mon;
+    ptm->tm_year  = stm.tm_year;
+    ptm->tm_wday  = stm.tm_wday;
+    ptm->tm_yday  = stm.tm_yday;
+    ptm->tm_isdst = stm.tm_isdst;
 
+}
 void RtcGetTmUtc(struct tm* ptm)
 {
-    getTmUtc(ptm);
-    if ((LPC_RTC->SEC & 0x3F) != ptm->tm_sec) getTmUtc(ptm);
-}
-static void adjustCalibration(uint64_t thisSet)
-{
-     int                   K = 4;
-     int32_t     calibration = RtcGetCalibration();                             //Work out how many calibration seconds were added; -ve means skip a second each match seconds; +ve means add two seconds each match seconds
-     
-    uint64_t         thisRtc = RtcGet();                                        //Get the current RTC
-    uint64_t      elapsedAct = thisSet - lastSet;                               //Get the actual elapsed time (from NTP)
-    uint32_t  elapsedSeconds = elapsedAct >> RTC_RESOLUTION_BITS;
-
-     int32_t    addedSeconds;
-     if      (calibration > 0) addedSeconds =   elapsedSeconds /  calibration;  //Find the number of whole seconds that will have been added or removed. Use actual seconds as rtc depends on this outcome - catch 22
-     else if (calibration < 0) addedSeconds = -(elapsedSeconds / -calibration);
-     else                      addedSeconds = 0;
-     
-     int64_t        addedRtc = addedSeconds << RTC_RESOLUTION_BITS;
-    uint64_t      elapsedRtc = thisRtc - lastSet - addedRtc;                    //Get the true elapsed RTC time by removing any added seconds
-     int64_t       behindRtc = elapsedAct - elapsedRtc;                         //Get the difference between the theo (actual) and the rtc
-    LogF("thisSet=%llu; thisRtc=%llu; lastSet=%llu\r\n",thisSet, thisRtc, lastSet);
-    LogF("Fractional set part=%d; fractional part=%d\r\n", fractionalPartOfSetTime, LPC_TIM1->TC);
-    LogF("Cal=%d; elapsedAct=%llu; added=%d; elapsedRtc=%llu; behindRtc=%lld\r\n",calibration, elapsedAct, addedSeconds, elapsedRtc, behindRtc);
-    
-     int32_t theoCalibration;
-     if      (behindRtc > 0) theoCalibration =   elapsedAct /  behindRtc;      //Calculate the theoretical calibration (or +infinity if no difference) from these times
-     else if (behindRtc < 0) theoCalibration = -(elapsedAct / -behindRtc);
-     else                    theoCalibration = 0x1FFFF;
-     
-     int32_t  addCalibration = (theoCalibration - calibration) >> K;            //take a part of the difference between theo and actual
-                calibration += addCalibration;                                  //Add that part to smooth out the new calibration
-    LogF("theo=%d; add=%d; new=%d\r\n\r\n", theoCalibration, addCalibration, calibration);
-                
-    if (calibration <  100 && calibration >= 0) calibration =  100;             //Do not allow monster adjustments over +/- 1%
-    if (calibration > -100 && calibration <  0) calibration = -100;
-    setCalibration(calibration);
-}
-
-void     RtcSet(uint64_t t)
-{
-    stopAndReset();
-    
-    if (lastSet) adjustCalibration(t);
-    lastSet = t;
-    
-    fractionalPartOfSetTime = t & ((1 << RTC_RESOLUTION_BITS) - 1); //Record the remaining fraction of a second not set in the RTC
-    int wholeseconds = t >> RTC_RESOLUTION_BITS;                    //Set the RTC to the whole number of seconds in the time
-    
-    struct tm tm;
-    TimeToTmUtc(wholeseconds, &tm);
-    setTmUtc(&tm);
-    setTmUtc(&tm); //Do it again as sometimes we don't seem to get the right answer
-    
-    release();
+    getCopyTm(ptm);
 }
 void RtcGetTmLocal(struct tm* ptm)
 {
-    RtcGetTmUtc(ptm);
+    getCopyTm(ptm);
     TimeTmUtcToLocal(ptm);
 }

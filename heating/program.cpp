@@ -1,5 +1,5 @@
 #include     "mbed.h"
-#include      "rtc.h"
+#include      "rtc.hpp"
 #include "settings.h"
 #include       "io.h"
 #include      "log.h"
