@@ -2,7 +2,7 @@
 #include      "log.h"
 #include      "esp.h"
 #include     "wifi.h"
-#include      "rtc.h"
+#include      "rtc.hpp"
 #include       "io.h"
 #include       "at.h"
 #include "settings.h"

@@ -2,7 +2,8 @@
 #include      "log.h"
 #include   "device.hpp"
 #include  "ds18b20.hpp"
-#include      "rtc.h"
+#include      "rtc.hpp"
+#include  "rtc-cal.hpp"
 #include     "main.h"
 #include      "cfg.h"
 #include  "heating.h"
@@ -442,7 +443,8 @@ int HtmlSystem(int chunk)
         addFormIntInput (0, "Normal interval (s)",  10, "clocknormal",   3, SettingsGetClockNormalInterval()  );
         addFormIntInput (0, "Retry interval (s)",   10, "clockretry",    3, SettingsGetClockRetryInterval()   );
         addFormIntInput (0, "Offset (ms)",          10, "clockoffset",   3, SettingsGetClockOffsetMs()        );
-        addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcGetCalibration()               );
+        addFormIntInput (0, "Calibration divisor",  10, "clockcaldiv",   8, SettingsGetClockCalDivisor()      );
+        addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcCalGet()                       );
         addFormEnd();
         
         return RESPONSE_SEND_CHUNK;

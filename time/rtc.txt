@@ -12,6 +12,22 @@ RtcSet uses TimeToTmUtc(wholeseconds, &tm) to properly configure the RTC. It als
 
 Getting time from the RTC
 =========================
-uint64_t RtcGet();                      //Returns the count of seconds plus the fractional part from timer1.
+uint64_t RtcGet();                      //Returns the count of seconds plus the fractional part from timer1 plus the fracional part from when set.
 void     RtcGetTmUtc(struct tm* ptm);   //Very quick map of RTC registers to a struct tm
 void     RtcGetTmLocal(struct tm* ptm); //A struct tm adjusted for the local timezone
+
+Problem
+=======
+added=0; missed=0; errors=0
+act=3019458228756; rtc=3019436106561; prev=3019347632897;
+interval=88473664; loss=22122195
+last=30464; theo=3; add=-1903; new=28561
+interval = 12 hours exactly
+loss = 3 hours and a few milliseconds
+
+19/09/2016 13:13    ::ffff:192.168.1.61 heating -1465   
+20/09/2016 04:13    ::ffff:192.168.1.61 heating -10801844   -3.000512222
+                
+15.00055556
+
+A plausible cause is if the RTC was set exactly 3 hours into the past at the 13:13 update or lost exactly 3 hours subsequent to it.

@@ -1,9 +1,10 @@
 #include     "mbed.h"
 #include      "cfg.h"
-#include      "rtc.h"
+#include      "rtc.hpp"
 #include      "log.h"
 #include       "at.h"
-#include      "ntp.h"
+#include      "rtc.hpp"
+#include      "ntp.hpp"
 #include      "esp.h"
 #include       "io.h"
 #include     "time.h"
@@ -47,19 +48,20 @@ int main()
     while (1)
     {        
         //Scan each module
-        SettingsSetProgramPosition(0); r =     WifiMain(); if (r) break;
-        SettingsSetProgramPosition(1); r =       AtMain(); if (r) break;
-        SettingsSetProgramPosition(2); r =     UartMain(); if (r) break;
-        SettingsSetProgramPosition(3); r =      EspMain(); if (r) break;
-        SettingsSetProgramPosition(4); r =      NtpMain(); if (r) break;
-        SettingsSetProgramPosition(5); r =   ServerMain(); if (r) break;
-        SettingsSetProgramPosition(6); r =  OneWireMain(); if (r) break;
-        SettingsSetProgramPosition(7); r =   DeviceMain(); if (r) break;
-        SettingsSetProgramPosition(8); r =  HeatingMain(); if (r) break;
-        SettingsSetProgramPosition(9); r = WatchdogMain(); if (r) break;
+        SettingsSetProgramPosition( 0); r =     WifiMain(); if (r) break;
+        SettingsSetProgramPosition( 1); r =       AtMain(); if (r) break;
+        SettingsSetProgramPosition( 2); r =     UartMain(); if (r) break;
+        SettingsSetProgramPosition( 3); r =      EspMain(); if (r) break;
+        SettingsSetProgramPosition( 4); r =      RtcMain(); if (r) break;
+        SettingsSetProgramPosition( 5); r =      NtpMain(); if (r) break;
+        SettingsSetProgramPosition( 6); r =   ServerMain(); if (r) break;
+        SettingsSetProgramPosition( 7); r =  OneWireMain(); if (r) break;
+        SettingsSetProgramPosition( 8); r =   DeviceMain(); if (r) break;
+        SettingsSetProgramPosition( 9); r =  HeatingMain(); if (r) break;
+        SettingsSetProgramPosition(10); r = WatchdogMain(); if (r) break;
         
         
-        SettingsSetProgramPosition(10); 
+        SettingsSetProgramPosition(11); 
         switch (WifiStatus)
         {
             case WIFI_STOPPED:   Led2 = 0; Led3 = 0; Led4 = 1; break;

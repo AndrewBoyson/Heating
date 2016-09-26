@@ -3,25 +3,9 @@
 #define STD_OFFSET 0
 #define DST_OFFSET 1
 
-// Convert compile time to system time 
-int TimeAsciiDateTimeToTm(const char* pDate, const char* pTime, struct tm* ptm)
-{
-    //Pull out the year, month, day, hour, minute and second from the compiler DATE and TIME macro constants
-    char s_month[5];
-    sscanf(pDate, "%s %d %d", s_month, &ptm->tm_mday, &ptm->tm_year); ptm->tm_year -= 1900;
-    sscanf(pTime, "%2d %*c %2d %*c %2d", &ptm->tm_hour, &ptm->tm_min, &ptm->tm_sec);
-    
-    // Find where is s_month in month_names. Deduce month value. 
-    static const char month_names[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
-    ptm->tm_mon = (strstr(month_names, s_month) - month_names) / 3;
-        
-    //Normalises the day of week and the day of year part of the tm structure as well as returning a time_t
-    mktime(ptm); 
-    
-    return 0;
-}
 static bool isLeapYear(int year)
 {
+    year += 1900;
     bool leapYear = !(year & 0x3);
     if (year >= 2100)
     {
@@ -34,8 +18,8 @@ static bool isLeapYear(int year)
 static int monthLength(int year, int month)
 {
     static char monthlengths[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-    int daysInMonth = monthlengths[month-1];
-    if (month == 2 && isLeapYear(year)) daysInMonth++;
+    int daysInMonth = monthlengths[month];
+    if (month == 1 && isLeapYear(year)) daysInMonth++; //February is month 1 of months 0 to 11
     return daysInMonth;
 }
 static int isDst(int year, int month, int dayOfMonth, int dayOfWeek, int hours)
@@ -47,22 +31,51 @@ static int isDst(int year, int month, int dayOfMonth, int dayOfWeek, int hours)
     int lastSundayDayOfMonth = lastDayOfMonth - dayOfWeekOfLastDayOfMonth;
 
     //Check each month
-    if (month <= 2) return false;                  //Jan, Feb
-    if (month == 3)                                //Mar - DST true after 1am UTC on the last Sunday in March
+    if (month <= 1) return false;                  //Jan, Feb
+    if (month == 2)                                //Mar - DST true after 1am UTC on the last Sunday in March
     {
         if (dayOfMonth <  lastSundayDayOfMonth) return false;
         if (dayOfMonth == lastSundayDayOfMonth) return hours >= 1;
         if (dayOfMonth >  lastSundayDayOfMonth) return true;
     }
-    if (month >= 4 && month <= 9)     return true; //Apr, May, Jun, Jul, Aug, Sep
-    if (month == 10)                               //Oct - DST false after 1am UTC on the last Sunday in October
+    if (month >= 3 && month <= 8)     return true; //Apr, May, Jun, Jul, Aug, Sep
+    if (month == 9)                                //Oct - DST false after 1am UTC on the last Sunday in October
     {
         if (dayOfMonth <  lastSundayDayOfMonth) return true;
         if (dayOfMonth == lastSundayDayOfMonth) return hours < 1;
         if (dayOfMonth >  lastSundayDayOfMonth) return false;
     }
-    if (month >= 11) return false;                  //Nov, Dec
+    if (month >= 10) return false;                  //Nov, Dec
     return false;
+}
+static void calculateDayOfYearAndWeek(int thisYear, int thisMonth, int thisMonthDay, int* pDayOfYear, int* pDayOfWeek)
+{
+    int dayOfYear = 0;    //1 Jan is day 0
+    int dayOfWeek = 4;    //1 Jan 1970 is a Thursday
+    
+    //Add days of each whole year
+    for (int y = 70; y < thisYear; y++)
+    {
+        int lengthOfYear = isLeapYear(y) ? 366 : 365;
+        dayOfWeek += lengthOfYear;
+    }
+    
+    //Add days of each whole month
+    for (int m = 0; m < thisMonth; m++)
+    {
+        int lengthOfMonth = monthLength(thisYear, m);
+        dayOfYear += lengthOfMonth;
+        dayOfWeek += lengthOfMonth;
+    }
+    
+    //Add days of part month
+    thisMonthDay--; //thisMonthDay is 01 to 31 where we need 00 to 30
+    dayOfYear += thisMonthDay;
+    dayOfWeek += thisMonthDay;
+    
+    //Update the day of year and day of week parts of the struct tm
+    *pDayOfYear = dayOfYear;     // 0 --> 365
+    *pDayOfWeek = dayOfWeek % 7; // 0 --> 6
 }
 static void normalise(int* pHours, int* pDayOfWeek, int* pDayOfMonth, int* pMonth, int * pDayOfYear, int* pYear)
 {
@@ -76,11 +89,11 @@ static void normalise(int* pHours, int* pDayOfWeek, int* pDayOfMonth, int* pMont
         if (*pDayOfMonth > monthLength(*pYear, *pMonth))
         {
             ++*pMonth;
-            if (*pMonth > 12)
+            if (*pMonth > 11)
             {
                 ++*pYear;
-                *pDayOfYear = 1;
-                *pMonth = 1;
+                *pDayOfYear = 0;
+                *pMonth = 0;
             }
             *pDayOfMonth = 1;
         }
@@ -96,11 +109,11 @@ static void normalise(int* pHours, int* pDayOfWeek, int* pDayOfMonth, int* pMont
         if (*pDayOfMonth < 1)
         {
             --*pMonth;
-            if (*pMonth < 1)
+            if (*pMonth < 0)
             {
                 --*pYear;
-                *pDayOfYear = isLeapYear(*pYear) ? 366 : 365;
-                *pMonth = 12;
+                *pDayOfYear = isLeapYear(*pYear) ? 365 : 364;
+                *pMonth = 11;
             }
             *pDayOfMonth = monthLength(*pYear, *pMonth);
         }
@@ -144,23 +157,25 @@ static void addMonths(int year, int* pMonth, int* pDaysLeft)
 }
 static void timeToTm(time_t t, struct tm* ptm, int local)
 {
-    int seconds  = t % 60; t /= 60;
-    int minutes  = t % 60; t /= 60;
-    int hours    = t % 24; t /= 24;
-    int daysLeft = t;
+    //Extract the seconds, minutes, hours and days from the time_t t
+    div_t divres;
+    divres = div(          t, 60);    int seconds  = divres.rem;
+    divres = div(divres.quot, 60);    int minutes  = divres.rem;
+    divres = div(divres.quot, 24);    int hours    = divres.rem;
+                                      int daysLeft = divres.quot;
     
     //Add a year at a time while there is more than a year of days left
-    int year      = 1970; //Unix epoch is 1970
-    int dayOfWeek = 4;    //1 Jan 1970 is a Thursday
+    int year      = 70; //Unix epoch is 1970
+    int dayOfWeek = 4;  //1 Jan 1970 is a Thursday
     addYears(&year, &dayOfWeek, &daysLeft);
     
     //Days left contains the days left from the start (1 Jan) of the current year
-    int dayOfYear = daysLeft + 1;
+    int dayOfYear = daysLeft;
     dayOfWeek += daysLeft;
     dayOfWeek %= 7;
 
     //Add a month at a time while there is more than a month of days left
-    int month = 1;
+    int month = 0;
     addMonths(year, &month, &daysLeft);
     
     //Days left contains the days left from the start (1st) of the current month
@@ -179,7 +194,7 @@ static void timeToTm(time_t t, struct tm* ptm, int local)
     }
     else
     {
-        dst = false;
+        dst = -1;
     }
     
     //Set up the broken time TM structure
@@ -187,50 +202,57 @@ static void timeToTm(time_t t, struct tm* ptm, int local)
     ptm->tm_min   = minutes;       // 00 --> 59
     ptm->tm_hour  = hours;         // 00 --> 23
     ptm->tm_mday  = dayOfMonth;    // 01 --> 31
-    ptm->tm_mon   = month - 1;     // 00 --> 11
-    ptm->tm_year  = year - 1900;   // Years since 1900
+    ptm->tm_mon   = month;         // 00 --> 11
+    ptm->tm_year  = year;          // Years since 1900
     ptm->tm_wday  = dayOfWeek;     // 0 --> 6 where 0 == Sunday
-    ptm->tm_yday  = dayOfYear - 1; // 0 --> 365
+    ptm->tm_yday  = dayOfYear;     // 0 --> 365
     ptm->tm_isdst = dst;           // +ve if DST, 0 if not DSTime, -ve if the information is not available. Note that 'true' evaluates to +1.
 }
 void TimeToTmUtc(time_t time, struct tm* ptm)
 {
     timeToTm(time, ptm, false);
 }
-
 void TimeToTmLocal(time_t time, struct tm* ptm)
 {
     timeToTm(time, ptm, true);
 }
-
 time_t TimeFromTmUtc(struct tm* ptm)
 {
     //Set up the broken time TM structure
-    int seconds    = ptm->tm_sec;         // 00 --> 59
-    int minutes    = ptm->tm_min;         // 00 --> 59
-    int hours      = ptm->tm_hour;        // 00 --> 23
-    int year       = ptm->tm_year + 1900; // Years since 1900
-    int dayOfYear  = ptm->tm_yday;        // 0 --> 365
+    int seconds    = ptm->tm_sec;  // 00 --> 59
+    int minutes    = ptm->tm_min;  // 00 --> 59
+    int hours      = ptm->tm_hour; // 00 --> 23
+    int year       = ptm->tm_year; // Years since 1900
+    int dayOfYear  = ptm->tm_yday; // 0 --> 365
 
     int days = dayOfYear;
-    for (int y = 1970; y < year; y++) days += isLeapYear(y) ? 366 : 365;
+    for (int y = 70; y < year; y++) days += isLeapYear(y) ? 366 : 365;
     return days * 86400 + hours * 3600 + minutes * 60 + seconds;
 }
 
 void TimeTmUtcToLocal(struct tm* ptm)
-{
-    //Adjust months from 00-11 to 01-12 and years to 1900
-    ptm->tm_mon  += 1;
-    ptm->tm_year += 1900;
-    
+{    
     //Establish DST
     ptm->tm_isdst = isDst(ptm->tm_year, ptm->tm_mon, ptm->tm_mday, ptm->tm_wday, ptm->tm_hour);
         
     //Adjust for the timezone
     ptm->tm_hour += ptm->tm_isdst ? DST_OFFSET : STD_OFFSET;
     normalise(&ptm->tm_hour, &ptm->tm_wday, &ptm->tm_mday, &ptm->tm_mon, &ptm->tm_yday, &ptm->tm_year);
+}
+
+void TimeAsciiDateTimeToTm(const char* pDate, const char* pTime, struct tm* ptm) // Convert compile time to system time 
+{
+    //__DATE__ The string constant contains eleven characters and looks like "Feb 12 1996". If the day of the month is less than 10, it is padded with a space on the left. 
+    char month[5];
+    sscanf(pDate, "%s %d %d", month, &ptm->tm_mday, &ptm->tm_year); ptm->tm_year -= 1900;
     
-    //Adjust months from 01-12 to 00-11 and years to 0
-    ptm->tm_mon  -= 1;
-    ptm->tm_year -= 1900;
+    // Find where month is in month_names. Deduce month value. 
+    static const char month_names[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    ptm->tm_mon = (strstr(month_names, month) - month_names) / 3;
+        
+    //__TIME__ The string constant contains eight characters and looks like "23:59:01".     
+    sscanf(pTime, "%2d %*c %2d %*c %2d", &ptm->tm_hour, &ptm->tm_min, &ptm->tm_sec);
+
+    //Fill the day of week and the day of year part of the tm structure
+    calculateDayOfYearAndWeek(ptm->tm_year, ptm->tm_mon, ptm->tm_mday, &ptm->tm_yday, &ptm->tm_wday);
 }
