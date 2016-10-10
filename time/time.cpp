@@ -218,16 +218,30 @@ void TimeToTmLocal(time_t time, struct tm* ptm)
 }
 time_t TimeFromTmUtc(struct tm* ptm)
 {
-    //Set up the broken time TM structure
-    int seconds    = ptm->tm_sec;  // 00 --> 59
-    int minutes    = ptm->tm_min;  // 00 --> 59
-    int hours      = ptm->tm_hour; // 00 --> 23
-    int year       = ptm->tm_year; // Years since 1900
-    int dayOfYear  = ptm->tm_yday; // 0 --> 365
-
-    int days = dayOfYear;
-    for (int y = 70; y < year; y++) days += isLeapYear(y) ? 366 : 365;
-    return days * 86400 + hours * 3600 + minutes * 60 + seconds;
+    int days = 0;
+    
+    for (int y = 70; y < ptm->tm_year; y++) days += isLeapYear(y) ? 366 : 365;
+    
+    days += ptm->tm_yday;
+    
+    return days         * 86400 + 
+           ptm->tm_hour *  3600 + 
+           ptm->tm_min  *    60 + 
+           ptm->tm_sec;
+}
+int TimePeriodBetween(struct tm* ptmLater, struct tm* ptmEarlier)
+{
+    int days = 0;
+    
+    if (ptmLater->tm_year > ptmEarlier->tm_year) for (int y = ptmEarlier->tm_year; y < ptmLater->tm_year; y++) days += isLeapYear(y) ? 366 : 365;
+    else                                         for (int y = ptmEarlier->tm_year; y > ptmLater->tm_year; y--) days -= isLeapYear(y) ? 366 : 365;
+    
+    days += ptmLater->tm_yday - ptmEarlier->tm_yday;
+    
+    return  days                                     * 86400 + 
+           (ptmLater->tm_hour - ptmEarlier->tm_hour) *  3600 + 
+           (ptmLater->tm_min  - ptmEarlier->tm_min ) *    60 + 
+           (ptmLater->tm_sec  - ptmEarlier->tm_sec );
 }
 
 void TimeTmUtcToLocal(struct tm* ptm)

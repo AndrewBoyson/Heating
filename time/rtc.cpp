@@ -3,14 +3,18 @@
 #include      "log.h"
 #include       "io.h"
 #include "settings.h"
-#include     "time.hpp"
-#include      "rtc.hpp"
-#include  "rtc-cal.hpp"
+#include     "time.h"
+#include      "rtc.h"
+#include  "rtc-cal.h"
 
 static struct tm stm;
 static void getstm()
 {
     stm.tm_sec    = LPC_RTC->SEC; //Make sure have had at least 8 cycles
+    stm.tm_sec    = LPC_RTC->SEC;
+    stm.tm_sec    = LPC_RTC->SEC;
+    stm.tm_sec    = LPC_RTC->SEC;
+    stm.tm_sec    = LPC_RTC->SEC;
     stm.tm_sec    = LPC_RTC->SEC;
     stm.tm_sec    = LPC_RTC->SEC;
     stm.tm_sec    = LPC_RTC->SEC;
@@ -59,11 +63,8 @@ static void rtcInterrupt()
         LPC_RTC->ILR = 2;  // 27.6.2.1 Interrupt Location Register - Clear interrupt by writing a 1 to bit 1
     }
 }
-int RtcMain()
+static void rtcSecondIncrement()
 {
-    if (!hadOneSecondIncrement) return 0;
-    hadOneSecondIncrement = false;
-    
     //Fetch the RTC
     getstm();
     int fraction = getFraction();
@@ -72,11 +73,18 @@ int RtcMain()
     stopAndResetFraction();
 
      //Allow calibration to determine if a second has been lost or not.
-    RtcCalSecondsHandler(stm.tm_sec, fraction);
+    RtcCalSecondsHandler(&stm, fraction);
     
     //Reenable the timer
     releaseFraction();
-    
+}
+int RtcMain()
+{
+    if (hadOneSecondIncrement)
+    {
+        rtcSecondIncrement();
+        hadOneSecondIncrement = false;
+    }
     return 0;
 }
 int RtcInit()
@@ -98,7 +106,6 @@ int RtcInit()
 
 
     //Set up timer 1 to handle the fractional part
-    stopAndResetFraction();
 
     int pre = 96000000 / (1 << RTC_RESOLUTION_BITS) - 1;
     int max = (1 << RTC_RESOLUTION_BITS) - 1;
@@ -106,6 +113,7 @@ int RtcInit()
     LPC_SC->PCLKSEL0 &= ~0x20;    //  4.7.3 Peripheral Clock Selection - PCLK_peripheral PCLK_TIMER1 00xxxx = CCLK/4; 01xxxx = CCLK
     LPC_SC->PCLKSEL0 |=  0x10;
     LPC_SC->PCONP    |=     4;    //  4.8.9 Power Control for Peripherals register - Timer1 Power On
+    stopAndResetFraction();
     LPC_TIM1->CTCR    =     0;    // 21.6.3 Count Control Register - Timer mode
     LPC_TIM1->PR      =   pre;    // 21.6.5 Prescale register      - Prescale 96MHz clock to 1s == 2048 (divide by PR+1).
     LPC_TIM1->MR0     =   max;    // 21.6.7 Match Register 0       - Match count
@@ -125,6 +133,7 @@ int RtcInit()
 }
 void RtcSet(uint64_t act)
 {
+    LogTimeF("Before set: seconds %02d:%02d:%02d; fraction base=%04d, cal=%04d, tim=%04d\r\n", stm.tm_hour, stm.tm_min, stm.tm_sec, SettingsGetRtcFraction(), RtcCalGetFraction(), getFraction());
     
     //Record the RTC time before it is changed ready for use by the calibration after the change
     uint64_t rtc = RtcGet();
@@ -141,24 +150,23 @@ void RtcSet(uint64_t act)
     setstm();  
     setRtcIsSet();
     if (LPC_RTC->SEC != stm.tm_sec || LPC_RTC->MIN != stm.tm_min || LPC_RTC->HOUR != stm.tm_hour) LogF("RTC value did not set %d:%d:%d\r\n", stm.tm_hour, stm.tm_min, stm.tm_sec); 
-
     
-    LogF("%04d-%03d %02d:%02d:%02d\r\n", stm.tm_year + 1900, stm.tm_yday, stm.tm_hour, stm.tm_min, stm.tm_sec);
+    //Adjust the calibration and send the seconds after the change
+    RtcCalTimeSetHandler(rtc, act, &stm);
     
     releaseClock();
     releaseFraction();
     
-    //Adjust the calibration and send the seconds after the change
-    RtcCalTimeSetHandler(rtc, act, stm.tm_sec);
-
+    LogTimeF("After  set: seconds %02d:%02d:%02d; fraction base=%04d, cal=%04d, tim=%04d\r\n\r\n", stm.tm_hour, stm.tm_min, stm.tm_sec, SettingsGetRtcFraction(), RtcCalGetFraction(), getFraction());
 }
 uint64_t RtcGet()
 {
     if (!getRtcIsSet()) return 0;      //Bomb out with a value of zero if the RTC is not set
     
-    uint64_t t = TimeFromTmUtc(&stm);   //Convert struct tm to a time_t and put into 64 bits
+    uint64_t t = TimeFromTmUtc(&stm);  //Convert struct tm to a time_t and put into 64 bits
     t <<= RTC_RESOLUTION_BITS;         //Move the seconds to the left of the decimal point
     t += SettingsGetRtcFraction();     //Add remaining fraction of a second if it has been set
+    t += RtcCalGetFraction();          //Add fraction from calibration
     t += getFraction();                //Add the fractional part - 21.6.4 Timer Counter register
     
     return t;

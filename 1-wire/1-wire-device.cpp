@@ -1,10 +1,10 @@
-#include    "mbed.h"
-#include  "1-wire.hpp"
-#include     "log.h"
-#include      "io.h"
-#include    "wifi.h"
-#include  "device.hpp"
-#include "ds18b20.hpp"
+#include          "mbed.h"
+#include        "1-wire.h"
+#include           "log.h"
+#include            "io.h"
+#include          "wifi.h"
+#include "1-wire-device.h"
+#include       "ds18b20.h"
 
 #define DEBUG false //Set this to true to add debug messages to the log
 

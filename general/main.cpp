@@ -1,35 +1,41 @@
-#include     "mbed.h"
-#include      "cfg.h"
-#include      "rtc.hpp"
-#include      "log.h"
-#include       "at.h"
-#include      "rtc.hpp"
-#include      "ntp.hpp"
-#include      "esp.h"
-#include       "io.h"
-#include     "time.h"
-#include   "server.h"
-#include     "wifi.h"
-#include     "uart.h"
-#include   "1-wire.hpp"
-#include   "device.hpp"
-#include  "heating.h"
-#include "watchdog.h"
-#include "settings.h"
+#include          "mbed.h"
+#include           "cfg.h"
+#include           "rtc.h"
+#include           "log.h"
+#include            "at.h"
+#include           "ntp.h"
+#include           "esp.h"
+#include            "io.h"
+#include          "time.h"
+#include        "server.h"
+#include          "wifi.h"
+#include          "uart.h"
+#include        "1-wire.h"
+#include "1-wire-device.h"
+#include       "heating.h"
+#include      "watchdog.h"
+#include      "settings.h"
 
 int MainScanUs = 0;
 int MainLastProgramPosition;
+static volatile int position = 0;
+
+void MainSaveProgramPositionAndReset()
+{
+    SettingsSetProgramPosition(position);
+    NVIC_SystemReset();
+}
 
 int main()
 {
     //static Timer stopTimer;
     //stopTimer.reset();
     //stopTimer.start();
-    
     MainLastProgramPosition = SettingsGetProgramPosition();
     
     int r = 0;
     
+    r = WatchdogInit();
     r =       IoInit();
     r =      RtcInit();
     r =      CfgInit();
@@ -43,25 +49,22 @@ int main()
     r =  OneWireInit();
     r =   DeviceInit();
     r =  HeatingInit();
-    r = WatchdogInit();
            
     while (1)
     {        
         //Scan each module
-        SettingsSetProgramPosition( 0); r =     WifiMain(); if (r) break;
-        SettingsSetProgramPosition( 1); r =       AtMain(); if (r) break;
-        SettingsSetProgramPosition( 2); r =     UartMain(); if (r) break;
-        SettingsSetProgramPosition( 3); r =      EspMain(); if (r) break;
-        SettingsSetProgramPosition( 4); r =      RtcMain(); if (r) break;
-        SettingsSetProgramPosition( 5); r =      NtpMain(); if (r) break;
-        SettingsSetProgramPosition( 6); r =   ServerMain(); if (r) break;
-        SettingsSetProgramPosition( 7); r =  OneWireMain(); if (r) break;
-        SettingsSetProgramPosition( 8); r =   DeviceMain(); if (r) break;
-        SettingsSetProgramPosition( 9); r =  HeatingMain(); if (r) break;
-        SettingsSetProgramPosition(10); r = WatchdogMain(); if (r) break;
-        
-        
-        SettingsSetProgramPosition(11); 
+        position =  1; r = WatchdogMain(); if (r) break;
+        position =  2; r =     WifiMain(); if (r) break;
+        position =  3; r =       AtMain(); if (r) break;
+        position =  4; r =     UartMain(); if (r) break;
+        position =  5; r =      EspMain(); if (r) break;
+        position =  6; r =      RtcMain(); if (r) break;
+        position =  7; r =      NtpMain(); if (r) break;
+        position =  8; r =   ServerMain(); if (r) break;
+        position =  9; r =  OneWireMain(); if (r) break;
+        position = 10; r =   DeviceMain(); if (r) break;
+        position = 11; r =  HeatingMain(); if (r) break;
+        position = 12; 
         switch (WifiStatus)
         {
             case WIFI_STOPPED:   Led2 = 0; Led3 = 0; Led4 = 1; break;

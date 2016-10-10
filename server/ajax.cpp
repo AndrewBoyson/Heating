@@ -1,6 +1,6 @@
 #include     "mbed.h"
 #include "settings.h"
-#include  "ds18b20.hpp"
+#include  "ds18b20.h"
 #include "response.h"
 
 int Ajax(int chunk)

@@ -41,6 +41,7 @@ extern int   SettingsGetClockInitialInterval();
 extern int   SettingsGetClockNormalInterval();
 extern int   SettingsGetClockRetryInterval();
 extern int   SettingsGetClockOffsetMs();
+extern int   SettingsGetClockNtpMaxDelayMs();
 extern int   SettingsGetClockCalDivisor();
 
 extern void  SettingsSetClockNtpIp           (char *value);
@@ -48,6 +49,7 @@ extern void  SettingsSetClockInitialInterval (int   value);
 extern void  SettingsSetClockNormalInterval  (int   value);
 extern void  SettingsSetClockRetryInterval   (int   value);
 extern void  SettingsSetClockOffsetMs        (int   value);
+extern void  SettingsSetClockNtpMaxDelayMs   (int   value);
 extern void  SettingsSetClockCalDivisor      (int   value);
 
 
