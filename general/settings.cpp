@@ -34,20 +34,20 @@ void SettingsSetScheduleReg(int index, int value)
 
 /*
 ALSEC   6 (  64) Alarm value for Seconds       
-ALMIN   6 (  64) Alarm value for Minutes       ProgramPosition
+ALMIN   6 (  64) Alarm value for Minutes
 ALHOUR  5 (  32) Alarm value for Hours         
 ALDOM   5 (  32) Alarm value for Day of Month  
 ALDOW   3 (   8) Alarm value for Day of Week
 ALDOY   9 ( 512) Alarm value for Day of Year   
-ALMON   4 (  16) Alarm value for Months        
+ALMON   4 (  16) Alarm value for Months        WatchdogPosition
 ALYEAR 12 (4096) Alarm value for Years         RtcBaseFraction
 Total  50
 */
 
-int  SettingsGetProgramPosition() { return LPC_RTC->ALMIN;     }
+int  SettingsGetProgramPosition() { return LPC_RTC->ALMON;     }
 int  SettingsGetRtcFraction    () { return LPC_RTC->ALYEAR;    }
 
-void SettingsSetProgramPosition(int value) { if (value >   63) value =   63; if (value <   0) value =   0; LPC_RTC->ALMIN  = value;     }
+void SettingsSetProgramPosition(int value) { if (value >   15) value =   15; if (value <   0) value =   0; LPC_RTC->ALMON  = value;     }
 void SettingsSetRtcFraction    (int value) { if (value > 4095) value = 4095; if (value <   0) value =   0; LPC_RTC->ALYEAR = value;     }
 
 static void saveIp(char* filename, char* pSetting, char* value)
@@ -104,6 +104,7 @@ static int  clockInitialInterval;
 static int  clockNormalInterval;
 static int  clockRetryInterval;
 static int  clockOffsetMs;
+static int  clockNtpMaxDelayMs;
 static int  clockCalDivisor;
 
 static char tankRom[8];
@@ -123,6 +124,7 @@ int   SettingsGetClockInitialInterval() { return clockInitialInterval; }
 int   SettingsGetClockNormalInterval () { return clockNormalInterval;  }
 int   SettingsGetClockRetryInterval  () { return clockRetryInterval;   }
 int   SettingsGetClockOffsetMs       () { return clockOffsetMs;        }
+int   SettingsGetClockNtpMaxDelayMs  () { return clockNtpMaxDelayMs;   }
 int   SettingsGetClockCalDivisor     () { return clockCalDivisor;      }
 
 char* SettingsGetTankRom             () { return tankRom;              }
@@ -143,6 +145,7 @@ void SettingsSetClockInitialInterval (int   value) { saveInt("/local/clk_init.ti
 void SettingsSetClockNormalInterval  (int   value) { saveInt("/local/clk_norm.tim", &clockNormalInterval,  value); }
 void SettingsSetClockRetryInterval   (int   value) { saveInt("/local/clk_retr.tim", &clockRetryInterval,   value); }
 void SettingsSetClockOffsetMs        (int   value) { saveInt("/local/clk_offs.tim", &clockOffsetMs,        value); }
+void SettingsSetClockNtpMaxDelayMs   (int   value) { saveInt("/local/clk_maxd.tim", &clockNtpMaxDelayMs,   value); }
 void SettingsSetClockCalDivisor      (int   value) { saveInt("/local/clk_cal.div",  &clockCalDivisor,      value); }
 
 void SettingsSetTankRom              (char* value) { saveRom("/local/tank.rom",      tankRom,              value); }
@@ -170,6 +173,7 @@ int  SettingsInit()
     loadInt("/local/clk_norm.tim", &clockNormalInterval, 600);
     loadInt("/local/clk_retr.tim", &clockRetryInterval,   60);
     loadInt("/local/clk_offs.tim", &clockOffsetMs,         0);
+    loadInt("/local/clk_maxd.tim", &clockNtpMaxDelayMs,   50);
     loadInt("/local/clk_cal.div",  &clockCalDivisor,      16);
     
     loadInt("/local/tnk_setp.deg", &tankSetPoint,         80);

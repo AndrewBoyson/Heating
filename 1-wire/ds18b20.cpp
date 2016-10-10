@@ -1,8 +1,8 @@
-#include    "mbed.h"
-#include     "log.h"
-#include  "1-wire.hpp"
-#include  "device.hpp"
-#include "ds18b20.hpp"
+#include          "mbed.h"
+#include           "log.h"
+#include        "1-wire.h"
+#include "1-wire-device.h"
+#include       "ds18b20.h"
 
 int16_t DS18B20Value[DEVICE_MAX];
 

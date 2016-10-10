@@ -2,7 +2,7 @@
 #include      "log.h"
 #include      "esp.h"
 #include     "wifi.h"
-#include      "rtc.hpp"
+#include      "rtc.h"
 #include       "io.h"
 #include       "at.h"
 #include "settings.h"
@@ -60,14 +60,6 @@ static uint64_t ntohll(uint64_t n) {
     
     return h.Whole;
 }
-uint64_t addMs(uint64_t ntpTime, int ms)
-{
-    int64_t adjustment = ms;  //Put the ms into a 64 bit int
-    adjustment <<= 32;        //Move the into the seconds part of the ntp timestamp (the upper 32 bits)
-    adjustment /= 1000;       //Divide by 1000 to convert to ms
-    ntpTime += adjustment;
-    return ntpTime;
-}
 uint64_t getTimeAsNtp()
 {
     uint64_t ntp28 = 2208988800ULL << 28;            //Fill with 1970 - 1900
@@ -106,15 +98,21 @@ int handlePacket()
     char version = packet.VN;
     char mode    = packet.Mode;
     char stratum = packet.Stratum;
-    if (leap    == 3) { LogF("Remote clock has a fault\r\n");                     return -1; }
-    if (version  < 1) { LogF("Version is %d\r\n", version);                       return -1; }
-    if (mode    != 4) { LogF("Mode is %d\r\n", mode);                             return -1; }
-    if (stratum == 0) { LogF("Received Kiss of Death packet (stratum is 0)\r\n"); return -1; }
+    if (leap    == 3) { LogTimeF("Remote clock has a fault\r\n");                     return -1; }
+    if (version  < 1) { LogTimeF("Version is %d\r\n", version);                       return -1; }
+    if (mode    != 4) { LogTimeF("Mode is %d but expected 4\r\n", mode);              return -1; }
+    if (stratum == 0) { LogTimeF("Received Kiss of Death packet (stratum is 0)\r\n"); return -1; }
 
+    //Check the received timestamp delay
+    uint64_t delay = getTimeAsNtp() - ntohll(packet.OriTimeStamp);
+    uint64_t delayMs = delay >> 22; //This is approximate as the seconds are divided by 1024 rather than 1000 but close enough
+    uint64_t limit = SettingsGetClockNtpMaxDelayMs();
+    if (delayMs > limit) { LogTimeF("Delay %llu ms is greater than limit %llu ms\r\n", delayMs, limit); return -1; }
+    
     //Set the RTC
     uint64_t ntpTime = ntohll(packet.RecTimeStamp);
-    ntpTime = addMs(ntpTime, SettingsGetClockOffsetMs());
-    setTimeAsNtp(ntpTime);
+    int64_t offset = SettingsGetClockOffsetMs() << 22; //This is approximate as the milliseconds are multiplied by 1024 rather than 1000 but close enough
+    setTimeAsNtp(ntpTime + offset);
     
     return 0;
 }

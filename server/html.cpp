@@ -1,22 +1,22 @@
-#include     "mbed.h"
-#include      "log.h"
-#include   "device.hpp"
-#include  "ds18b20.hpp"
-#include      "rtc.hpp"
-#include  "rtc-cal.hpp"
-#include     "main.h"
-#include      "cfg.h"
-#include  "heating.h"
-#include  "program.h"
-#include       "at.h"
-#include  "request.h"
-#include   "server.h"
-#include "response.h"
-#include       "io.h"
-#include "radiator.h"
-#include   "boiler.h"
-#include "settings.h"
-#include "watchdog.h"
+#include          "mbed.h"
+#include           "log.h"
+#include "1-wire-device.h"
+#include       "ds18b20.h"
+#include           "rtc.h"
+#include       "rtc-cal.h"
+#include          "main.h"
+#include           "cfg.h"
+#include       "heating.h"
+#include       "program.h"
+#include            "at.h"
+#include       "request.h"
+#include        "server.h"
+#include      "response.h"
+#include            "io.h"
+#include      "radiator.h"
+#include        "boiler.h"
+#include      "settings.h"
+#include      "watchdog.h"
 
 static int fillLogChunk() //Returns true if send buffer is full
 {
@@ -443,6 +443,7 @@ int HtmlSystem(int chunk)
         addFormIntInput (0, "Normal interval (s)",  10, "clocknormal",   3, SettingsGetClockNormalInterval()  );
         addFormIntInput (0, "Retry interval (s)",   10, "clockretry",    3, SettingsGetClockRetryInterval()   );
         addFormIntInput (0, "Offset (ms)",          10, "clockoffset",   3, SettingsGetClockOffsetMs()        );
+        addFormIntInput (0, "Max delay (ms)",       10, "clockmaxdelay", 3, SettingsGetClockNtpMaxDelayMs()   );
         addFormIntInput (0, "Calibration divisor",  10, "clockcaldiv",   8, SettingsGetClockCalDivisor()      );
         addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcCalGet()                       );
         addFormEnd();

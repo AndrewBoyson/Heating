@@ -1,8 +1,6 @@
 #include "mbed.h"
-#include <stdarg.h>
-#include "time.h"
+#include  "rtc.h"
 #define LOG_FILE "/local/log.txt"
-#define DATE_FORMAT "%05d "
 
 LocalFileSystem local("local");
 
@@ -67,31 +65,94 @@ int LogInit()
     pPull = buffer;
     return 0;
 }
+void LogV(char *fmt, va_list argptr)
+{
+    int size  = vsnprintf(NULL, 0, fmt, argptr);      //Find the size required
+    char snd[size + 1];                               //Allocate enough memory for the size required with an extra byte for the terminating null
+    vsprintf(snd, fmt, argptr);                       //Fill the new buffer
+    for (char* ptr = snd; *ptr; ptr++) LogPush(*ptr); //Send the string to the log buffer
+}
 void LogF(char *fmt, ...)
 {
-    //Set up variable arguments
     va_list argptr;
     va_start(argptr, fmt);
-    
-    //Find the size required
-    int size  = vsnprintf(NULL, 0, fmt, argptr);
-    
-    //Allocate enough memory for the size required with an extra byte for the terminating null
-    char snd[size + 1];
-    
-    //Fill the new buffer
-    vsprintf(snd, fmt, argptr);
-    
-    //Finish with variable arguments
+    LogV(fmt, argptr);
     va_end(argptr);
-    
-    //Send the string to the log buffer
-    for (char* ptr = snd; *ptr; ptr++) LogPush(*ptr);
-    
 }
 void LogCrLf (char * text)
 {
     LogF("%s\r\n", text);
+}
+static void pushuint4(int value)
+{    
+    if      (value > 9999) { LogPush('+'); LogPush('+'); LogPush('+'); LogPush('+'); }
+    else if (value <    0) { LogPush('-'); LogPush('-'); LogPush('-'); LogPush('-'); }
+    else
+    {
+        div_t divres;
+        int k, c, t, u;
+        divres = div(value      , 10); u = divres.rem;
+        divres = div(divres.quot, 10); t = divres.rem;
+        divres = div(divres.quot, 10); c = divres.rem;
+                                       k = divres.quot;                           
+        LogPush(k + '0'); LogPush(c + '0'); LogPush(t + '0'); LogPush(u + '0');
+    }
+}
+static void pushuint3(int value)
+{
+    if      (value > 999) { LogPush('+'); LogPush('+'); LogPush('+'); }
+    else if (value <   0) { LogPush('-'); LogPush('-'); LogPush('-'); }
+    else
+    {
+        div_t divres;
+        int c, t, u;
+        divres = div(value      , 10); u = divres.rem;
+        divres = div(divres.quot, 10); t = divres.rem;
+                                       c = divres.quot;
+        LogPush(c + '0'); LogPush(t + '0'); LogPush(u + '0');
+    }
+}
+static void pushuint2(int value)
+{
+    if      (value > 99) { LogPush('+'); LogPush('+'); }
+    else if (value <  0) { LogPush('-'); LogPush('-'); }
+    else
+    {
+        div_t divres;
+        int t, u;
+        divres = div(value      , 10); u = divres.rem;
+                                       t = divres.quot;
+        LogPush(t + '0'); LogPush(u + '0');
+    }
+}
+void LogTime()
+{
+    struct tm tm;
+    RtcGetTmUtc(&tm);
+    
+    pushuint4(tm.tm_year + 1900);
+    LogPush('-');
+    pushuint3(tm.tm_yday + 1);
+    LogPush(' ');
+    pushuint2(tm.tm_hour);
+    LogPush(':');
+    pushuint2(tm.tm_min);
+    LogPush(':');
+    pushuint2(tm.tm_sec);
+}
+void LogTimeCrLf(char * text)
+{
+    LogTime();
+    LogF(" %s\r\n", text);
+}
+void LogTimeF(char *fmt, ...)
+{
+    va_list argptr;
+    va_start(argptr, fmt);
+    LogTime();
+    LogPush(' ');
+    LogV(fmt, argptr);
+    va_end(argptr);
 }
 void LogSave()
 {

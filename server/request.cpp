@@ -1,20 +1,20 @@
-#include     "mbed.h"
-#include     "http.h"
-#include  "heating.h"
-#include  "program.h"
-#include      "log.h"
-#include      "esp.h"
-#include  "request.h"
-#include "response.h"
-#include   "server.h"
-#include "settings.h"
-#include      "cfg.h"
-#include "watchdog.h"
-#include   "device.hpp"
-#include      "rtc.hpp"
-#include  "rtc-cal.hpp"
-#include       "io.h"
-#include      "ntp.hpp"
+#include          "mbed.h"
+#include          "http.h"
+#include       "heating.h"
+#include       "program.h"
+#include           "log.h"
+#include           "esp.h"
+#include       "request.h"
+#include      "response.h"
+#include        "server.h"
+#include      "settings.h"
+#include           "cfg.h"
+#include      "watchdog.h"
+#include "1-wire-device.h"
+#include           "rtc.h"
+#include       "rtc-cal.h"
+#include            "io.h"
+#include           "ntp.h"
 
 #define RECV_BUFFER_SIZE 512
 static char recvbuffer[RECV_BUFFER_SIZE];
@@ -284,6 +284,7 @@ int RequestHandle(int id)
             if (strcmp(pName, "clocknormal"  ) == 0) SettingsSetClockNormalInterval (value);
             if (strcmp(pName, "clockretry"   ) == 0) SettingsSetClockRetryInterval  (value);
             if (strcmp(pName, "clockoffset"  ) == 0) SettingsSetClockOffsetMs       (value);
+            if (strcmp(pName, "clockmaxdelay") == 0) SettingsSetClockNtpMaxDelayMs  (value);
             if (strcmp(pName, "clockcaldiv"  ) == 0) SettingsSetClockCalDivisor     (value);
             if (strcmp(pName, "calibration"  ) == 0) RtcCalSet                      (value);
 

@@ -1,7 +1,10 @@
 extern int  LogInit(void);
-extern void LogTime(void);
+extern void LogV(char *fmt, va_list argptr);
 extern void LogF(char *fmt, ...);
 extern void LogCrLf(char *);
+extern void LogTime();
+extern void LogTimeF(char *fmt, ...);
+extern void LogTimeCrLf(char *);
 extern void LogSave(void);
 extern void LogPush(char c);
 extern void LogEnumerateStart(void);

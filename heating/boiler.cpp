@@ -1,5 +1,5 @@
 #include       "io.h"
-#include  "ds18b20.hpp"
+#include  "ds18b20.h"
 #include      "cfg.h"
 #include "settings.h"
 

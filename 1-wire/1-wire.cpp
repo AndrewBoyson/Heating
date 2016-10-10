@@ -1,8 +1,8 @@
 #include       "mbed.h"
 #include        "log.h"
 #include         "io.h"
-#include "1-wire-bus.hpp"
-#include     "1-wire.hpp"
+#include "1-wire-bus.h"
+#include     "1-wire.h"
 
 #define DEBUG false //Set to true to add debug messages to the log
 
