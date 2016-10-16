@@ -37,10 +37,10 @@ int main()
     
     r = WatchdogInit();
     r =       IoInit();
-    r =      RtcInit();
+    r =      LogInit();
     r =      CfgInit();
     r = SettingsInit();
-    r =      LogInit();
+    r =      RtcInit();
     r =     UartInit();
     r =      EspInit();
     r =       AtInit();

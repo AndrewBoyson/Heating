@@ -280,13 +280,13 @@ int RequestHandle(int id)
                 SettingsSetClockNtpIp(pValue);
                 NtpRequestReconnect();
             }
-            if (strcmp(pName, "clockinitial" ) == 0) SettingsSetClockInitialInterval(value);
-            if (strcmp(pName, "clocknormal"  ) == 0) SettingsSetClockNormalInterval (value);
-            if (strcmp(pName, "clockretry"   ) == 0) SettingsSetClockRetryInterval  (value);
-            if (strcmp(pName, "clockoffset"  ) == 0) SettingsSetClockOffsetMs       (value);
-            if (strcmp(pName, "clockmaxdelay") == 0) SettingsSetClockNtpMaxDelayMs  (value);
-            if (strcmp(pName, "clockcaldiv"  ) == 0) SettingsSetClockCalDivisor     (value);
-            if (strcmp(pName, "calibration"  ) == 0) RtcCalSet                      (value);
+            if (strcmp(pName, "clockinitial" ) == 0) SettingsSetClockInitialInterval(value       );
+            if (strcmp(pName, "clocknormal"  ) == 0) SettingsSetClockNormalInterval (value * 3600);
+            if (strcmp(pName, "clockretry"   ) == 0) SettingsSetClockRetryInterval  (value       );
+            if (strcmp(pName, "clockoffset"  ) == 0) SettingsSetClockOffsetMs       (value       );
+            if (strcmp(pName, "clockmaxdelay") == 0) SettingsSetClockNtpMaxDelayMs  (value       );
+            if (strcmp(pName, "clockcaldiv"  ) == 0) SettingsSetClockCalDivisor     (value       );
+            if (strcmp(pName, "calibration"  ) == 0) RtcCalSet                      (value       );
 
         }
         ResponseStart(id, REQUEST_SYSTEM, NULL);

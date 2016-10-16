@@ -52,17 +52,25 @@ void SettingsSetRtcFraction    (int value) { if (value > 4095) value = 4095; if 
 
 static void saveIp(char* filename, char* pSetting, char* value)
 {
-    strncpy(pSetting, value, 16);
+    strncpy(pSetting, value, 16);    //strncpy() writes additional null bytes to dest to ensure that a total of n bytes are written.
     FILE *fp = fopen(filename, "w");
-    if (!fp) return;
-    fputs(value, fp);
+    if (!fp)
+    {
+        LogF("Settings saveIp fopen %s\r\n", filename); //Don't use a timed log as the rtc is not up yet.
+        return;
+    }
+    fputs(value, fp);                //The terminating null-character is not copied to the stream.
     fclose(fp);
 }
 static void saveRom(char* filename, char* pSetting, char* value)
 {
     memcpy(pSetting, value, 8);
     FILE *fp = fopen(filename, "w");
-    if (!fp) return;
+    if (!fp)
+    {
+        LogF("Settings saveRom fopen %s\r\n", filename); //Don't use a timed log as the rtc is not up yet.
+        return;
+    }
     fwrite(pSetting, 1, 8, fp);
     fclose(fp);
 }
@@ -70,7 +78,11 @@ static void saveInt(char* filename, int* pSetting, int value)
 {
     *pSetting = value;
     FILE *fp = fopen(filename, "w");
-    if (!fp) return;
+    if (!fp)
+    {
+        LogF("Settings saveInt fopen %s\r\n", filename); //Don't use a timed log as the rtc is not up yet.
+        return;
+    }
     fwrite(pSetting, sizeof(int), 1, fp);
     fclose(fp);
 }
@@ -78,15 +90,23 @@ static void loadIp(char* filename, char* pSetting)
 {
     *pSetting = 0;
     FILE *fp = fopen(filename, "r");
-    if (!fp) return;
-    fgets(pSetting, 16, fp); // At most n−1 characters are read (leaving room for the null).
+    if (!fp)
+    {
+        LogF("Settings loadIp fopen %s\r\n", filename); //Don't use a timed log as the rtc is not up yet.
+        return;
+    }
+    fgets(pSetting, 16, fp); // At most n−1 characters are read (leaving room for the null). A terminating null character is automatically appended after the characters copied to str.
     fclose(fp);
 }
 static void loadRom(char* filename, char* pSetting)
 {
     memset(pSetting, 0, 8);
     FILE *fp = fopen(filename, "r");
-    if (!fp) return;
+    if (!fp)
+    {
+        LogF("Settings loadRom fopen %s\r\n", filename); //Don't use a timed log as the rtc is not up yet.
+        return;
+    }
     fread(pSetting, 1, 8, fp);
     fclose(fp);   
 }
@@ -94,7 +114,11 @@ static void loadInt(char* filename, int* pSetting, int defaultValue)
 {
     *pSetting = defaultValue;
     FILE *fp = fopen(filename, "r");
-    if (!fp) return;
+    if (!fp)
+    {
+        LogF("Settings loadInt fopen %s\r\n", filename); //Don't use a timed log as the rtc is not up yet.
+        return;
+    }
     fread(pSetting, sizeof(int), 1, fp);
     fclose(fp);   
 }
