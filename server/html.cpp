@@ -4,6 +4,7 @@
 #include       "ds18b20.h"
 #include           "rtc.h"
 #include       "rtc-cal.h"
+#include       "rtc-clk.h"
 #include          "main.h"
 #include           "cfg.h"
 #include       "heating.h"
@@ -385,6 +386,7 @@ int HtmlSystem(int chunk)
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Time</h1>\r\n");
+        if (RtcClockIsNotSet()) ResponseAdd("<div>Clock is not set!</div>\r\n");
         struct tm tm;
         RtcGetTmUtc(&tm);
         ResponseAdd("<div>\r\n");
@@ -437,16 +439,19 @@ int HtmlSystem(int chunk)
     {
         ResponseAdd("<h1>Clock</h1>\r\n");
         
-        addFormStart("/system");
-        addFormTextInput(0, "NTP IP",               10, "ntpip",         6, SettingsGetClockNtpIp()           );
-        addFormIntInput (0, "Initial interval (s)", 10, "clockinitial",  3, SettingsGetClockInitialInterval() );
-        addFormIntInput (0, "Normal interval (s)",  10, "clocknormal",   3, SettingsGetClockNormalInterval()  );
-        addFormIntInput (0, "Retry interval (s)",   10, "clockretry",    3, SettingsGetClockRetryInterval()   );
-        addFormIntInput (0, "Offset (ms)",          10, "clockoffset",   3, SettingsGetClockOffsetMs()        );
-        addFormIntInput (0, "Max delay (ms)",       10, "clockmaxdelay", 3, SettingsGetClockNtpMaxDelayMs()   );
-        addFormIntInput (0, "Calibration divisor",  10, "clockcaldiv",   8, SettingsGetClockCalDivisor()      );
-        addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcCalGet()                       );
-        addFormEnd();
+        addFormStart("/system"); addFormTextInput(0, "NTP IP",               10, "ntpip",         6, SettingsGetClockNtpIp()                  ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Initial interval (s)", 10, "clockinitial",  3, SettingsGetClockInitialInterval()        ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Normal interval (h)",  10, "clocknormal",   3, SettingsGetClockNormalInterval() / 3600  ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Retry interval (s)",   10, "clockretry",    3, SettingsGetClockRetryInterval()          ); addFormEnd();
+        
+        return RESPONSE_SEND_CHUNK;
+    }
+    if (++posn == chunk)
+    {
+        addFormStart("/system"); addFormIntInput (0, "Offset (ms)",          10, "clockoffset",   3, SettingsGetClockOffsetMs()        ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Max delay (ms)",       10, "clockmaxdelay", 3, SettingsGetClockNtpMaxDelayMs()   ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Calibration divisor",  10, "clockcaldiv",   8, SettingsGetClockCalDivisor()      ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcCalGet()                       ); addFormEnd();
         
         return RESPONSE_SEND_CHUNK;
     }

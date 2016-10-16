@@ -104,6 +104,9 @@ static void adjustCalibration(uint64_t rtc, uint64_t act)
     calcnt = 0;
     calfra = 0;
 }
+void RtcCalStopAndResetCounter() { LPC_RTC->CCR |=  0x10; } //stop and reset the calibration counter (CCALEN bit 4 = 1)
+void RtcCalReleaseCounter()      { LPC_RTC->CCR &= ~0x10; } //release        the calibration counter (CCALEN bit 4 = 0)
+
 void RtcCalSecondsHandler(struct tm* ptm, int fraction)
 {
     if (prev) updateSeconds(ptm, fraction);
@@ -131,6 +134,8 @@ void RtcCalSet(int value)
 }
 void RtcCalInit()
 {
-      calval = getCalibration();
-      prev = 0;
+    RtcCalStopAndResetCounter();
+    calval = getCalibration();
+    prev = 0;
+    RtcCalReleaseCounter();
 }
