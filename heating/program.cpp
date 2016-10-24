@@ -1,5 +1,6 @@
 #include     "mbed.h"
 #include      "rtc.h"
+#include  "rtc-clk.h"
 #include "settings.h"
 #include       "io.h"
 #include      "log.h"
@@ -237,6 +238,8 @@ void ProgramParse(int program, char* text)
 
 static bool checkProgramBeforeOverride()
 {   
+    if (RtcClockIsNotSet()) return false;
+
     struct tm tm;
     RtcGetTmLocal(&tm);
     

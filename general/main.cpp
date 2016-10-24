@@ -15,6 +15,7 @@
 #include       "heating.h"
 #include      "watchdog.h"
 #include      "settings.h"
+#include          "fram.h"
 
 int MainScanUs = 0;
 int MainLastProgramPosition;
@@ -49,6 +50,13 @@ int main()
     r =  OneWireInit();
     r =   DeviceInit();
     r =  HeatingInit();
+    r =     FramInit();
+    
+    FramWriteBuffer(100, 2, "Hi");
+    char buffer[10];
+    FramReadBuffer(100, 2, buffer);
+    buffer[2] = 0;
+    LogF("FRAM contains %s\r\n", buffer); 
            
     while (1)
     {        

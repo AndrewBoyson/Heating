@@ -1,0 +1,6 @@
+Have three cores and earth
+
+Red       In     Thermostat 1-wire data
+Yellow    In     Manual override switch
+Blue      Out    Heating on led
+Earth     Common 0v
