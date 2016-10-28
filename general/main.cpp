@@ -23,7 +23,7 @@ static volatile int position = 0;
 
 void MainSaveProgramPositionAndReset()
 {
-    SettingsSetProgramPosition(position);
+    SettingsSetMainPosition(position);
     NVIC_SystemReset();
 }
 
@@ -32,7 +32,7 @@ int main()
     //static Timer stopTimer;
     //stopTimer.reset();
     //stopTimer.start();
-    MainLastProgramPosition = SettingsGetProgramPosition();
+    MainLastProgramPosition = SettingsGetMainPosition();
     
     int r = 0;
     
@@ -40,7 +40,8 @@ int main()
     r =       IoInit();
     r =      LogInit();
     r =      CfgInit();
-    r = SettingsInit();
+    r =     FramInit(); //Reserves 1 FRAM byte to detect if empty
+    r = SettingsInit(); //Reserves many FRAM bytes
     r =      RtcInit();
     r =     UartInit();
     r =      EspInit();
@@ -49,14 +50,6 @@ int main()
     r =   ServerInit(); //Call this after any connections (ntp) are reserved
     r =  OneWireInit();
     r =   DeviceInit();
-    r =  HeatingInit();
-    r =     FramInit();
-    
-    FramWriteBuffer(100, 2, "Hi");
-    char buffer[10];
-    FramReadBuffer(100, 2, buffer);
-    buffer[2] = 0;
-    LogF("FRAM contains %s\r\n", buffer); 
            
     while (1)
     {        

@@ -18,6 +18,7 @@
 #include        "boiler.h"
 #include      "settings.h"
 #include      "watchdog.h"
+#include          "fram.h"
 
 static int fillLogChunk() //Returns true if send buffer is full
 {
@@ -190,24 +191,24 @@ int HtmlHome(int chunk)
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Heating</h1>\r\n");
-        if (ProgramAuto) addFormCheckInput("/", "Auto (winter)", "autooff", "change to off (summer)");
-        else             addFormCheckInput("/", "Off (summer)",  "autoon" , "change to auto (winter)");
+        if (SettingsGetProgramAuto()) addFormCheckInput("/", "Auto (winter)", "autooff", "change to off (summer)");
+        else                          addFormCheckInput("/", "Off (summer)",  "autoon" , "change to auto (winter)");
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Manual program override</h1>\r\n");
-        if (ProgramAuto)
+        if (SettingsGetProgramAuto())
         {
             if (ProgramIsCalling)
             {
-                if (ProgramOverride) addFormCheckInput("/", "Heating is on (manual)", "overrideoff", "turn it off");
-                else                 addFormCheckInput("/", "Heating is on (auto)",   "overrideon",  "turn it off");
+                if (SettingsGetProgramOverride()) addFormCheckInput("/", "Heating is on (manual)", "overrideoff", "turn it off");
+                else                              addFormCheckInput("/", "Heating is on (auto)",   "overrideon",  "turn it off");
             }
             else
             {
-                if (ProgramOverride) addFormCheckInput("/", "Heating is off (manual)", "overrideoff", "turn it on");
-                else                 addFormCheckInput("/", "Heating is off (auto)",   "overrideon",  "turn it on");
+                if (SettingsGetProgramOverride()) addFormCheckInput("/", "Heating is off (manual)", "overrideoff", "turn it on");
+                else                              addFormCheckInput("/", "Heating is off (auto)",   "overrideon",  "turn it on");
             }
         }
         else
@@ -253,19 +254,19 @@ int HtmlProgram(int chunk)
         ResponseAdd("<h1>Days</h1>\r\n");
         addFormStart("/program");
         ResponseAdd("<div>\r\n");
-        addFormIntInput(3.3, "Mon", 2.3, "mon", 1, ProgramDay[1] + 1);
-        addFormIntInput(3.3, "Tue", 2.3, "tue", 1, ProgramDay[2] + 1);
-        addFormIntInput(3.3, "Wed", 2.3, "wed", 1, ProgramDay[3] + 1);
-        addFormIntInput(3.3, "Thu", 2.3, "thu", 1, ProgramDay[4] + 1);
-        addFormIntInput(3.3, "Fri", 2.3, "fri", 1, ProgramDay[5] + 1);
+        addFormIntInput(3.3, "Mon", 2.3, "mon", 1, SettingsGetProgramDay(1) + 1);
+        addFormIntInput(3.3, "Tue", 2.3, "tue", 1, SettingsGetProgramDay(2) + 1);
+        addFormIntInput(3.3, "Wed", 2.3, "wed", 1, SettingsGetProgramDay(3) + 1);
+        addFormIntInput(3.3, "Thu", 2.3, "thu", 1, SettingsGetProgramDay(4) + 1);
+        addFormIntInput(3.3, "Fri", 2.3, "fri", 1, SettingsGetProgramDay(5) + 1);
         ResponseAdd("</div>\r\n");
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {       
         ResponseAdd("<div>\r\n");
-        addFormIntInput(3.3, "Sat", 2.3, "sat", 1, ProgramDay[6] + 1);
-        addFormIntInput(3.3, "Sun", 2.3, "sun", 1, ProgramDay[0] + 1);
+        addFormIntInput(3.3, "Sat", 2.3, "sat", 1, SettingsGetProgramDay(6) + 1);
+        addFormIntInput(3.3, "Sun", 2.3, "sun", 1, SettingsGetProgramDay(0) + 1);
         ResponseAdd("</div>\r\n");
         addFormEnd();
         return RESPONSE_SEND_CHUNK;
@@ -295,7 +296,7 @@ int HtmlHeating(int chunk)
         ResponseAdd("<h1>Inputs</h1>\r\n");
         int16_t temp = DS18B20ValueFromRom(SettingsGetHallRom());
         addLabelledTemperature("Hall"     , 10, temp);
-        addLabelledOnOff("Winter mode"    , 10, ProgramAuto);
+        addLabelledOnOff("Winter mode"    , 10, SettingsGetProgramAuto());
         addLabelledOnOff("Heating program", 10, ProgramIsCalling);
         return RESPONSE_SEND_CHUNK;
     }
@@ -400,6 +401,9 @@ int HtmlSystem(int chunk)
         ResponseAdd("<h1>Scan times</h1>\r\n");
         addLabelledInt("Program &micro;s", 6, MainScanUs);
         addLabelledInt("Devices ms",       6, DeviceScanMs);
+
+        ResponseAdd("<h1>FRAM</h1>\r\n");
+        addLabelledInt("Used",             6, FramUsed);
 
         ResponseAdd("<h1>Last reset</h1>\r\n");
         if (WatchdogFlag)

@@ -1,4 +1,5 @@
 #include "mbed.h"
+#include  "log.h"
 
 int  RtcClockIsNotSet() { return LPC_RTC->RTC_AUX & 0x10; } //27.6.2.5 RTC Auxiliary control register - RTC Oscillator Fail detect flag
 
@@ -35,6 +36,7 @@ void RtcClockGetTm(struct tm* ptm)
 }
 void RtcClockSetTm(struct tm* ptm)
 {
+    LogTimeF("Setting clock %d:%d:%d\r\n", ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
     LPC_RTC->SEC     = ptm->tm_sec;         // 0 --> 59
     LPC_RTC->MIN     = ptm->tm_min;         // 0 --> 59
     LPC_RTC->HOUR    = ptm->tm_hour;        // 0 --> 23

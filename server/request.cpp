@@ -120,7 +120,45 @@ static void splitHeader(char* p, char** ppName, char** ppValue)
         p++;
     }
     *ppValue = p;                       //Record the start of the value
-} 
+}
+static int hexToInt(char c)
+{
+    int nibble;
+    if (c >= '0' && c <= '9') nibble = c - '0';
+    if (c >= 'A' && c <= 'F') nibble = c - 'A' + 0xA;
+    if (c >= 'a' && c <= 'f') nibble = c - 'a' + 0xA;
+    return nibble;
+}
+static void decodeValue(char* value)
+{
+    char* pDst = value;
+    for (char* pSrc = value; *pSrc; pSrc++)
+    {
+        char c = *pSrc;
+        switch (c)
+        {
+            case '+':
+                c = ' ';
+                break;
+            case '%':
+                int a;
+                c = *++pSrc;
+                if (c == 0) break;
+                a = hexToInt(c);
+                a <<= 4;
+                c = *++pSrc;
+                if (c == 0) break;
+                a += hexToInt(c);
+                c = a;
+                break;
+            default:
+                c = *pSrc;
+                break;
+        }
+        *pDst++ = c;
+    }
+    *pDst = 0;
+}
 int RequestHandle(int id)
 {    
     char* pThis;
@@ -159,11 +197,11 @@ int RequestHandle(int id)
             char* pValue;
             pQuery = splitQuery(pQuery, &pName, &pValue);
                         
-            if (strcmp(pName, "autoon" ) == 0) ProgramAuto = true;
-            if (strcmp(pName, "autooff") == 0) ProgramAuto = false;
+            if (strcmp(pName, "autoon" ) == 0) SettingsSetProgramAuto(true);
+            if (strcmp(pName, "autooff") == 0) SettingsSetProgramAuto(false);
             
-            if (strcmp(pName, "overrideon" ) == 0) ProgramOverride = true;
-            if (strcmp(pName, "overrideoff") == 0) ProgramOverride = false;           
+            if (strcmp(pName, "overrideon" ) == 0) SettingsSetProgramOverride(true);
+            if (strcmp(pName, "overrideoff") == 0) SettingsSetProgramOverride(false);
             
         }
         ResponseStart(id, REQUEST_HOME, NULL);
@@ -172,7 +210,6 @@ int RequestHandle(int id)
     
     if (strcmp(pPath, "/program") == 0)
     {
-        bool   needToSave = !!pQuery;
         while (pQuery)
         {
             char* pName;
@@ -181,6 +218,8 @@ int RequestHandle(int id)
             
             int value = 0;           
             sscanf(pValue, "%d", &value);
+            
+            decodeValue(pValue);
                         
             if (strcmp(pName, "program1") == 0) ProgramParse(0, pValue);
             if (strcmp(pName, "program2") == 0) ProgramParse(1, pValue);
@@ -190,16 +229,15 @@ int RequestHandle(int id)
             if (program < 1) program = 1;
             if (program > 3) program = 3;
             program--;
-            if (strcmp(pName, "mon") == 0) ProgramDay[1] = program;
-            if (strcmp(pName, "tue") == 0) ProgramDay[2] = program;
-            if (strcmp(pName, "wed") == 0) ProgramDay[3] = program;
-            if (strcmp(pName, "thu") == 0) ProgramDay[4] = program;
-            if (strcmp(pName, "fri") == 0) ProgramDay[5] = program;
-            if (strcmp(pName, "sat") == 0) ProgramDay[6] = program;
-            if (strcmp(pName, "sun") == 0) ProgramDay[0] = program;
+            if (strcmp(pName, "mon") == 0) SettingsSetProgramDay(1, program);
+            if (strcmp(pName, "tue") == 0) SettingsSetProgramDay(2, program);
+            if (strcmp(pName, "wed") == 0) SettingsSetProgramDay(3, program);
+            if (strcmp(pName, "thu") == 0) SettingsSetProgramDay(4, program);
+            if (strcmp(pName, "fri") == 0) SettingsSetProgramDay(5, program);
+            if (strcmp(pName, "sat") == 0) SettingsSetProgramDay(6, program);
+            if (strcmp(pName, "sun") == 0) SettingsSetProgramDay(0, program);
             
         }
-        if (needToSave) ProgramSaveAll();
         ResponseStart(id, REQUEST_PROGRAM, NULL);
         return 0;
     }

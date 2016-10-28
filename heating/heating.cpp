@@ -10,8 +10,3 @@ int HeatingMain()
     
     return 0;
 }
-int HeatingInit()
-{
-    ProgramInit();
-    return 0;
-}
