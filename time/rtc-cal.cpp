@@ -62,7 +62,7 @@ static void updateSeconds(struct tm* ptm, int elapsedTim)
             break;
             
         default:
-            LogF("RTC %d\r\n", elapsedRtc);
+            LogTimeF("RTC %d\r\n", elapsedRtc);
             break;
     }
     

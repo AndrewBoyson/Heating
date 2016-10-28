@@ -1,14 +1,10 @@
-#define SETTINGS_SCHEDULE_REG_COUNT 5
-
-extern int  SettingsGetScheduleReg(int index);
-extern void SettingsSetScheduleReg(int index, int value);
-
-
+extern int  SettingsGetMainPosition();
 extern int  SettingsGetRtcFraction();
+
+extern void SettingsSetMainPosition(int value);
 extern void SettingsSetRtcFraction(int value);
 
 
-extern int  SettingsGetProgramPosition();
 extern int  SettingsGetTankSetPoint();
 extern int  SettingsGetTankHysteresis();
 extern int  SettingsGetBoilerRunOnResidual();
@@ -16,7 +12,6 @@ extern int  SettingsGetBoilerRunOnTime();
 extern int  SettingsGetNightTemperature();
 extern int  SettingsGetFrostTemperature();
 
-extern void SettingsSetProgramPosition(int value);
 extern void SettingsSetTankSetPoint(int value);
 extern void SettingsSetTankHysteresis(int value);
 extern void SettingsSetBoilerRunOnResidual(int value);
@@ -51,6 +46,13 @@ extern void  SettingsSetClockRetryInterval   (int   value);
 extern void  SettingsSetClockOffsetMs        (int   value);
 extern void  SettingsSetClockNtpMaxDelayMs   (int   value);
 extern void  SettingsSetClockCalDivisor      (int   value);
+
+
+extern bool  SettingsGetProgramOverride     ();             extern void SettingsSetProgramOverride     (              bool value);
+extern bool  SettingsGetProgramAuto         ();             extern void SettingsSetProgramAuto         (              bool value);
+extern int   SettingsGetProgramDay          (int i);        extern void SettingsSetProgramDay          (int i,        int  value);
+extern bool  SettingsGetProgramCycleOn      (int i, int j); extern void SettingsSetProgramCycleOn      (int i, int j, bool value);
+extern int   SettingsGetProgramCycleMinutes (int i, int j); extern void SettingsSetProgramCycleMinutes (int i, int j, int  value);
 
 
 extern int   SettingsInit();

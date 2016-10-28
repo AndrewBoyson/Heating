@@ -13,7 +13,7 @@ int RadiatorMain()
     
     if (DS18B20IsValidValue(hallTemp16ths))
     {
-        if (ProgramAuto)
+        if (SettingsGetProgramAuto())
         {
             RadiatorPump = ProgramIsCalling || hallTemp16ths < nightTemp16ths ||  hallTemp16ths < frostTemp16ths;
         }
