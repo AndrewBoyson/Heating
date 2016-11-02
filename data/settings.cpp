@@ -3,6 +3,10 @@
 #include   "io.h"
 #include "fram.h"
 
+#define PROGRAMS                3
+#define TRANSITIONS_PER_PROGRAM 4
+#define TRANSITIONS             PROGRAMS * TRANSITIONS_PER_PROGRAM
+
 /*
 ALSEC   6 (  64) Alarm value for Seconds       
 ALMIN   6 (  64) Alarm value for Minutes
@@ -37,33 +41,34 @@ static void ipStrToBin(char* text, char* bytes)
     bytes[0] = ints[0] & 0xFF;
 }
 
-static char    clockNtpIp[16];         static int iClockNtpIp;
+static char     clockNtpIp[16];         static int iClockNtpIp;
 
-static int32_t clockInitialInterval;   static int iClockInitialInterval;
-static int32_t clockNormalInterval;    static int iClockNormalInterval;
-static int32_t clockRetryInterval;     static int iClockRetryInterval;
-static int32_t clockOffsetMs;          static int iClockOffsetMs;
-static int32_t clockNtpMaxDelayMs;     static int iClockNtpMaxDelayMs;
-static int32_t clockCalDivisor;        static int iClockCalDivisor;
+static int32_t clockInitialInterval;    static int iClockInitialInterval;
+static int32_t clockNormalInterval;     static int iClockNormalInterval;
+static int32_t clockRetryInterval;      static int iClockRetryInterval;
+static int32_t clockOffsetMs;           static int iClockOffsetMs;
+static int32_t clockNtpMaxDelayMs;      static int iClockNtpMaxDelayMs;
+static int32_t clockCalDivisor;         static int iClockCalDivisor;
 
-static char    tankRom[8];             static int iTankRom;
-static char    boilerOutputRom[8];     static int iBoilerOutputRom;
-static char    boilerReturnRom[8];     static int iBoilerReturnRom;
-static char    hallRom[8];             static int iHallRom;
+static char    tankRom[8];              static int iTankRom;
+static char    boilerOutputRom[8];      static int iBoilerOutputRom;
+static char    boilerReturnRom[8];      static int iBoilerReturnRom;
+static char    hallRom[8];              static int iHallRom;
 
-static int32_t tankSetPoint;           static int iTankSetPoint;
-static int32_t tankHysteresis;         static int iTankHysteresis;
-static int32_t boilerRunOnResidual;    static int iBoilerRunOnResidual;
-static int32_t boilerRunOnTime;        static int iBoilerRunOnTime;
-static int32_t nightTemperature;       static int iNightTemperature;
-static int32_t frostTemperature;       static int iFrostTemperature;
+static int32_t tankSetPoint;            static int iTankSetPoint;
+static int32_t tankHysteresis;          static int iTankHysteresis;
+static int32_t boilerRunOnResidual;     static int iBoilerRunOnResidual;
+static int32_t boilerRunOnTime;         static int iBoilerRunOnTime;
+static int32_t nightTemperature;        static int iNightTemperature;
+static int32_t frostTemperature;        static int iFrostTemperature;
 
-static char    programOverride;        static int iProgramOverride;
-static char    programAuto;            static int iProgramAuto;
-static char    programDay[7];          static int iProgramDay;
-static char    programCycleOn[3][4];   static int iProgramCycleOn;
-static int16_t programCycleMins[3][4]; static int iProgramCycleMins;
+static char    programOverride;         static int iProgramOverride;
+static char    programAuto;             static int iProgramAuto;
+static char    programDay[7];           static int iProgramDay;
+static int16_t programTransition[3][4]; static int iProgramTransition;
 
+extern const int SettingsProgramCount           = PROGRAMS;
+extern const int SettingsProgramTransitionCount = TRANSITIONS_PER_PROGRAM;
 
 char* SettingsGetClockNtpIp          ()             { return       clockNtpIp;             } 
 int   SettingsGetClockInitialInterval()             { return (int) clockInitialInterval;   } 
@@ -88,35 +93,32 @@ int   SettingsGetFrostTemperature    ()             { return (int) frostTemperat
 bool  SettingsGetProgramOverride     ()             { return (bool)programOverride;        } 
 bool  SettingsGetProgramAuto         ()             { return (bool)programAuto;            } 
 int   SettingsGetProgramDay          (int i)        { return (int) programDay[i];          } 
-bool  SettingsGetProgramCycleOn      (int i, int j) { return (bool)programCycleOn[i][j];   } 
-int   SettingsGetProgramCycleMinutes (int i, int j) { return (int) programCycleMins[i][j]; } 
+short SettingsGetProgramTransition   (int i, int j) { return (int) programTransition[i][j];} 
 
+void SettingsSetClockNtpIp           (              char *value) { strncpy(clockNtpIp, value, 16); char bin[4]; ipStrToBin(clockNtpIp, bin); FramWrite(iClockNtpIp,            4, bin                     ); }
+void SettingsSetClockInitialInterval (              int   value) { clockInitialInterval    = (int32_t)value;                                 FramWrite(iClockInitialInterval,  4, &clockInitialInterval   ); }
+void SettingsSetClockNormalInterval  (              int   value) { clockNormalInterval     = (int32_t)value;                                 FramWrite(iClockNormalInterval,   4, &clockNormalInterval    ); }
+void SettingsSetClockRetryInterval   (              int   value) { clockRetryInterval      = (int32_t)value;                                 FramWrite(iClockRetryInterval,    4, &clockRetryInterval     ); }
+void SettingsSetClockOffsetMs        (              int   value) { clockOffsetMs           = (int32_t)value;                                 FramWrite(iClockOffsetMs,         4, &clockOffsetMs          ); }
+void SettingsSetClockNtpMaxDelayMs   (              int   value) { clockNtpMaxDelayMs      = (int32_t)value;                                 FramWrite(iClockNtpMaxDelayMs,    4, &clockNtpMaxDelayMs     ); }
+void SettingsSetClockCalDivisor      (              int   value) { clockCalDivisor         = (int32_t)value;                                 FramWrite(iClockCalDivisor,       4, &clockCalDivisor        ); }
 
-void SettingsSetClockNtpIp           (              char *value) { strncpy(clockNtpIp, value, 16); char bin[4]; ipStrToBin(clockNtpIp, bin); FramWrite(iClockNtpIp,           4, bin                    ); }
-void SettingsSetClockInitialInterval (              int   value) { clockInitialInterval   = (int32_t)value;                                  FramWrite(iClockInitialInterval, 4, &clockInitialInterval  ); }
-void SettingsSetClockNormalInterval  (              int   value) { clockNormalInterval    = (int32_t)value;                                  FramWrite(iClockNormalInterval,  4, &clockNormalInterval   ); }
-void SettingsSetClockRetryInterval   (              int   value) { clockRetryInterval     = (int32_t)value;                                  FramWrite(iClockRetryInterval,   4, &clockRetryInterval    ); }
-void SettingsSetClockOffsetMs        (              int   value) { clockOffsetMs          = (int32_t)value;                                  FramWrite(iClockOffsetMs,        4, &clockOffsetMs         ); }
-void SettingsSetClockNtpMaxDelayMs   (              int   value) { clockNtpMaxDelayMs     = (int32_t)value;                                  FramWrite(iClockNtpMaxDelayMs,   4, &clockNtpMaxDelayMs    ); }
-void SettingsSetClockCalDivisor      (              int   value) { clockCalDivisor        = (int32_t)value;                                  FramWrite(iClockCalDivisor,      4, &clockCalDivisor       ); }
+void SettingsSetTankRom              (              char* value) { memcpy(tankRom,         value, 8);                                        FramWrite(iTankRom,               8,  tankRom                ); }
+void SettingsSetBoilerOutputRom      (              char* value) { memcpy(boilerOutputRom, value, 8);                                        FramWrite(iBoilerOutputRom,       8,  boilerOutputRom        ); }
+void SettingsSetBoilerReturnRom      (              char* value) { memcpy(boilerReturnRom, value, 8);                                        FramWrite(iBoilerReturnRom,       8,  boilerReturnRom        ); }
+void SettingsSetHallRom              (              char* value) { memcpy(hallRom,         value, 8);                                        FramWrite(iHallRom,               8,  hallRom                ); }
 
-void SettingsSetTankRom              (              char* value) { memcpy(tankRom,         value, 8);                                        FramWrite(iTankRom,              8,  tankRom               ); }
-void SettingsSetBoilerOutputRom      (              char* value) { memcpy(boilerOutputRom, value, 8);                                        FramWrite(iBoilerOutputRom,      8,  boilerOutputRom       ); }
-void SettingsSetBoilerReturnRom      (              char* value) { memcpy(boilerReturnRom, value, 8);                                        FramWrite(iBoilerReturnRom,      8,  boilerReturnRom       ); }
-void SettingsSetHallRom              (              char* value) { memcpy(hallRom,         value, 8);                                        FramWrite(iHallRom,              8,  hallRom               ); }
+void SettingsSetTankSetPoint         (              int   value) { tankSetPoint            = (int32_t)value;                                 FramWrite(iTankSetPoint,          4, &tankSetPoint           ); }
+void SettingsSetTankHysteresis       (              int   value) { tankHysteresis          = (int32_t)value;                                 FramWrite(iTankHysteresis,        4, &tankHysteresis         ); }
+void SettingsSetBoilerRunOnResidual  (              int   value) { boilerRunOnResidual     = (int32_t)value;                                 FramWrite(iBoilerRunOnResidual,   4, &boilerRunOnResidual    ); }
+void SettingsSetBoilerRunOnTime      (              int   value) { boilerRunOnTime         = (int32_t)value;                                 FramWrite(iBoilerRunOnTime,       4, &boilerRunOnTime        ); }
+void SettingsSetNightTemperature     (              int   value) { nightTemperature        = (int32_t)value;                                 FramWrite(iNightTemperature,      4, &nightTemperature       ); }
+void SettingsSetFrostTemperature     (              int   value) { frostTemperature        = (int32_t)value;                                 FramWrite(iFrostTemperature,      4, &frostTemperature       ); }
 
-void SettingsSetTankSetPoint         (              int   value) { tankSetPoint           = (int32_t)value;                                  FramWrite(iTankSetPoint,         4, &tankSetPoint          ); }
-void SettingsSetTankHysteresis       (              int   value) { tankHysteresis         = (int32_t)value;                                  FramWrite(iTankHysteresis,       4, &tankHysteresis        ); }
-void SettingsSetBoilerRunOnResidual  (              int   value) { boilerRunOnResidual    = (int32_t)value;                                  FramWrite(iBoilerRunOnResidual,  4, &boilerRunOnResidual   ); }
-void SettingsSetBoilerRunOnTime      (              int   value) { boilerRunOnTime        = (int32_t)value;                                  FramWrite(iBoilerRunOnTime,      4, &boilerRunOnTime       ); }
-void SettingsSetNightTemperature     (              int   value) { nightTemperature       = (int32_t)value;                                  FramWrite(iNightTemperature,     4, &nightTemperature      ); }
-void SettingsSetFrostTemperature     (              int   value) { frostTemperature       = (int32_t)value;                                  FramWrite(iFrostTemperature,     4, &frostTemperature      ); }
-
-void SettingsSetProgramOverride      (              bool  value) { programOverride        = (char)   value;                                  FramWrite(iProgramOverride,      1, &programOverride       ); }
-void SettingsSetProgramAuto          (              bool  value) { programAuto            = (char)   value;                                  FramWrite(iProgramAuto,          1, &programAuto           ); }
-void SettingsSetProgramDay           (int i,        int   value) { programDay      [i]    = (char)   value;                                  FramWrite(iProgramDay       + i, 1, &programDay      [i]   ); }
-void SettingsSetProgramCycleOn       (int i, int j, bool  value) { programCycleOn  [i][j] = (char)   value; int k =    i*4 + j;              FramWrite(iProgramCycleOn   + k, 1, &programCycleOn  [i][j]); }
-void SettingsSetProgramCycleMinutes  (int i, int j, int   value) { programCycleMins[i][j] = (int16_t)value; int k = 2*(i*4 + j);             FramWrite(iProgramCycleMins + k, 2, &programCycleMins[i][j]); }
+void SettingsSetProgramOverride      (              bool  value) { programOverride         = (char)   value;                                 FramWrite(iProgramOverride,       1, &programOverride        ); }
+void SettingsSetProgramAuto          (              bool  value) { programAuto             = (char)   value;                                 FramWrite(iProgramAuto,           1, &programAuto            ); }
+void SettingsSetProgramDay           (int i,        int   value) { programDay       [i]    = (char)   value;                                 FramWrite(iProgramDay        + i, 1, &programDay       [i]   ); }
+void SettingsSetProgramTransition    (int i, int j, short value) { programTransition[i][j] = (int16_t)value; int k = 2*(i*4 + j);            FramWrite(iProgramTransition + k, 2, &programTransition[i][j]); }
 
 int  SettingsInit()
 {
@@ -125,30 +127,29 @@ int  SettingsInit()
     int32_t def4;
     char    def1;
     
-                address = FramLoad( 8,  tankRom,               NULL); if (address < 0) return -1; iTankRom              = address;
-                address = FramLoad( 8,  boilerOutputRom,       NULL); if (address < 0) return -1; iBoilerOutputRom      = address;
-                address = FramLoad( 8,  boilerReturnRom,       NULL); if (address < 0) return -1; iBoilerReturnRom      = address;
-                address = FramLoad( 8,  hallRom,               NULL); if (address < 0) return -1; iHallRom              = address;
+                address = FramLoad( 8,               tankRom,               NULL); if (address < 0) return -1; iTankRom              = address;
+                address = FramLoad( 8,               boilerOutputRom,       NULL); if (address < 0) return -1; iBoilerOutputRom      = address;
+                address = FramLoad( 8,               boilerReturnRom,       NULL); if (address < 0) return -1; iBoilerReturnRom      = address;
+                address = FramLoad( 8,               hallRom,               NULL); if (address < 0) return -1; iHallRom              = address;
     
-                address = FramLoad( 4,  bin,                   NULL); if (address < 0) return -1; iClockNtpIp           = address; ipBinToStr(bin, clockNtpIp);
-    def4 =   1; address = FramLoad( 4, &clockInitialInterval, &def4); if (address < 0) return -1; iClockInitialInterval = address;
-    def4 = 600; address = FramLoad( 4, &clockNormalInterval,  &def4); if (address < 0) return -1; iClockNormalInterval  = address;
-    def4 =  60; address = FramLoad( 4, &clockRetryInterval,   &def4); if (address < 0) return -1; iClockRetryInterval   = address; 
-    def4 =   0; address = FramLoad( 4, &clockOffsetMs,        &def4); if (address < 0) return -1; iClockOffsetMs        = address; 
-    def4 =  50; address = FramLoad( 4, &clockNtpMaxDelayMs,   &def4); if (address < 0) return -1; iClockNtpMaxDelayMs   = address; 
-    def4 =  16; address = FramLoad( 4, &clockCalDivisor,      &def4); if (address < 0) return -1; iClockCalDivisor      = address; 
+                address = FramLoad( 4,               bin,                   NULL); if (address < 0) return -1; iClockNtpIp           = address; ipBinToStr(bin, clockNtpIp);
+    def4 =   1; address = FramLoad( 4,              &clockInitialInterval, &def4); if (address < 0) return -1; iClockInitialInterval = address;
+    def4 = 600; address = FramLoad( 4,              &clockNormalInterval,  &def4); if (address < 0) return -1; iClockNormalInterval  = address;
+    def4 =  60; address = FramLoad( 4,              &clockRetryInterval,   &def4); if (address < 0) return -1; iClockRetryInterval   = address; 
+    def4 =   0; address = FramLoad( 4,              &clockOffsetMs,        &def4); if (address < 0) return -1; iClockOffsetMs        = address; 
+    def4 =  50; address = FramLoad( 4,              &clockNtpMaxDelayMs,   &def4); if (address < 0) return -1; iClockNtpMaxDelayMs   = address; 
+    def4 =  16; address = FramLoad( 4,              &clockCalDivisor,      &def4); if (address < 0) return -1; iClockCalDivisor      = address; 
     
-    def4 =  80; address = FramLoad( 4, &tankSetPoint,         &def4); if (address < 0) return -1; iTankSetPoint         = address; 
-    def4 =   5; address = FramLoad( 4, &tankHysteresis,       &def4); if (address < 0) return -1; iTankHysteresis       = address; 
-    def4 =   2; address = FramLoad( 4, &boilerRunOnResidual,  &def4); if (address < 0) return -1; iBoilerRunOnResidual  = address; 
-    def4 = 360; address = FramLoad( 4, &boilerRunOnTime,      &def4); if (address < 0) return -1; iBoilerRunOnTime      = address; 
-    def4 =  15; address = FramLoad( 4, &nightTemperature,     &def4); if (address < 0) return -1; iNightTemperature     = address; 
-    def4 =   8; address = FramLoad( 4, &frostTemperature,     &def4); if (address < 0) return -1; iFrostTemperature     = address; 
+    def4 =  80; address = FramLoad( 4,              &tankSetPoint,         &def4); if (address < 0) return -1; iTankSetPoint         = address; 
+    def4 =   5; address = FramLoad( 4,              &tankHysteresis,       &def4); if (address < 0) return -1; iTankHysteresis       = address; 
+    def4 =   2; address = FramLoad( 4,              &boilerRunOnResidual,  &def4); if (address < 0) return -1; iBoilerRunOnResidual  = address; 
+    def4 = 360; address = FramLoad( 4,              &boilerRunOnTime,      &def4); if (address < 0) return -1; iBoilerRunOnTime      = address; 
+    def4 =  15; address = FramLoad( 4,              &nightTemperature,     &def4); if (address < 0) return -1; iNightTemperature     = address; 
+    def4 =   8; address = FramLoad( 4,              &frostTemperature,     &def4); if (address < 0) return -1; iFrostTemperature     = address; 
     
-    def1 =   0; address = FramLoad( 1, &programOverride,      &def1); if (address < 0) return -1; iProgramOverride      = address; 
-    def1 =   0; address = FramLoad( 1, &programAuto,          &def1); if (address < 0) return -1; iProgramAuto          = address; 
-                address = FramLoad( 7,  programDay,            NULL); if (address < 0) return -1; iProgramDay           = address;
-                address = FramLoad(12,  programCycleOn,        NULL); if (address < 0) return -1; iProgramCycleOn       = address; //3 x 4 x 1
-                address = FramLoad(24,  programCycleMins,      NULL); if (address < 0) return -1; iProgramCycleMins     = address; //3 x 4 x 2
+    def1 =   0; address = FramLoad( 1,              &programOverride,      &def1); if (address < 0) return -1; iProgramOverride      = address; 
+    def1 =   0; address = FramLoad( 1,              &programAuto,          &def1); if (address < 0) return -1; iProgramAuto          = address; 
+                address = FramLoad( 7,               programDay,            NULL); if (address < 0) return -1; iProgramDay           = address;
+                address = FramLoad(TRANSITIONS * 2,  programTransition,     NULL); if (address < 0) return -1; iProgramTransition    = address; //3 x 4 x 2
     return 0;
 }
