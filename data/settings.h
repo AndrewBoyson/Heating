@@ -47,12 +47,13 @@ extern void  SettingsSetClockOffsetMs        (int   value);
 extern void  SettingsSetClockNtpMaxDelayMs   (int   value);
 extern void  SettingsSetClockCalDivisor      (int   value);
 
-
-extern bool  SettingsGetProgramOverride     ();             extern void SettingsSetProgramOverride     (              bool value);
-extern bool  SettingsGetProgramAuto         ();             extern void SettingsSetProgramAuto         (              bool value);
-extern int   SettingsGetProgramDay          (int i);        extern void SettingsSetProgramDay          (int i,        int  value);
-extern bool  SettingsGetProgramCycleOn      (int i, int j); extern void SettingsSetProgramCycleOn      (int i, int j, bool value);
-extern int   SettingsGetProgramCycleMinutes (int i, int j); extern void SettingsSetProgramCycleMinutes (int i, int j, int  value);
+extern const int SettingsProgramCount;
+extern const int SettingsProgramTransitionCount;
+extern bool  SettingsGetProgramOverride     ();             extern void SettingsSetProgramOverride     (              bool  value);
+extern bool  SettingsGetProgramAuto         ();             extern void SettingsSetProgramAuto         (              bool  value);
+extern int   SettingsGetProgramDay          (int i);        extern void SettingsSetProgramDay          (int i,        int   value);
+extern short SettingsGetProgramTransition   (int i, int j); extern void SettingsSetProgramTransition   (int i, int j, short value);
 
 
 extern int   SettingsInit();
+
