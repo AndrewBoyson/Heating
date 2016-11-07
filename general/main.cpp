@@ -14,7 +14,7 @@
 #include "1-wire-device.h"
 #include       "heating.h"
 #include      "watchdog.h"
-#include      "settings.h"
+#include        "nonvol.h"
 #include          "fram.h"
 
 int MainScanUs = 0;
@@ -23,7 +23,7 @@ static volatile int position = 0;
 
 void MainSaveProgramPositionAndReset()
 {
-    SettingsSetMainPosition(position);
+    NonVolSetMainPosition(position);
     NVIC_SystemReset();
 }
 
@@ -32,7 +32,7 @@ int main()
     //static Timer stopTimer;
     //stopTimer.reset();
     //stopTimer.start();
-    MainLastProgramPosition = SettingsGetMainPosition();
+    MainLastProgramPosition = NonVolGetMainPosition();
     
     int r = 0;
     
@@ -41,15 +41,15 @@ int main()
     r =      LogInit();
     r =      CfgInit();
     r =     FramInit(); //Reserves 1 FRAM byte to detect if empty
-    r = SettingsInit(); //Reserves many FRAM bytes
     r =      RtcInit();
     r =     UartInit();
     r =      EspInit();
     r =       AtInit();
-    r =      NtpInit();
+    r =      NtpInit(); //Reserves NTP FRAM bytes
     r =   ServerInit(); //Call this after any connections (ntp) are reserved
     r =  OneWireInit();
     r =   DeviceInit();
+    r =  HeatingInit(); //Reserves many FRAM bytes
            
     while (1)
     {        

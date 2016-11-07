@@ -7,7 +7,8 @@
 #include       "request.h"
 #include      "response.h"
 #include        "server.h"
-#include      "settings.h"
+#include        "boiler.h"
+#include      "radiator.h"
 #include           "cfg.h"
 #include      "watchdog.h"
 #include "1-wire-device.h"
@@ -197,11 +198,11 @@ int RequestHandle(int id)
             char* pValue;
             pQuery = splitQuery(pQuery, &pName, &pValue);
                         
-            if (strcmp(pName, "autoon" ) == 0) SettingsSetProgramAuto(true);
-            if (strcmp(pName, "autooff") == 0) SettingsSetProgramAuto(false);
+            if (strcmp(pName, "autoon" ) == 0) ProgramSetAuto(true);
+            if (strcmp(pName, "autooff") == 0) ProgramSetAuto(false);
             
-            if (strcmp(pName, "overrideon" ) == 0) SettingsSetProgramOverride(true);
-            if (strcmp(pName, "overrideoff") == 0) SettingsSetProgramOverride(false);
+            if (strcmp(pName, "overrideon" ) == 0) ProgramSetOverride(true);
+            if (strcmp(pName, "overrideoff") == 0) ProgramSetOverride(false);
             
         }
         ResponseStart(id, REQUEST_HOME, NULL);
@@ -229,13 +230,13 @@ int RequestHandle(int id)
             if (program < 1) program = 1;
             if (program > 3) program = 3;
             program--;
-            if (strcmp(pName, "mon") == 0) SettingsSetProgramDay(1, program);
-            if (strcmp(pName, "tue") == 0) SettingsSetProgramDay(2, program);
-            if (strcmp(pName, "wed") == 0) SettingsSetProgramDay(3, program);
-            if (strcmp(pName, "thu") == 0) SettingsSetProgramDay(4, program);
-            if (strcmp(pName, "fri") == 0) SettingsSetProgramDay(5, program);
-            if (strcmp(pName, "sat") == 0) SettingsSetProgramDay(6, program);
-            if (strcmp(pName, "sun") == 0) SettingsSetProgramDay(0, program);
+            if (strcmp(pName, "mon") == 0) ProgramSetDay(1, program);
+            if (strcmp(pName, "tue") == 0) ProgramSetDay(2, program);
+            if (strcmp(pName, "wed") == 0) ProgramSetDay(3, program);
+            if (strcmp(pName, "thu") == 0) ProgramSetDay(4, program);
+            if (strcmp(pName, "fri") == 0) ProgramSetDay(5, program);
+            if (strcmp(pName, "sat") == 0) ProgramSetDay(6, program);
+            if (strcmp(pName, "sun") == 0) ProgramSetDay(0, program);
             
         }
         ResponseStart(id, REQUEST_PROGRAM, NULL);
@@ -252,8 +253,8 @@ int RequestHandle(int id)
             int value = 0;           
             sscanf(pValue, "%d", &value);      
             
-            if (strcmp(pName, "nighttemp") == 0) SettingsSetNightTemperature(value);
-            if (strcmp(pName, "frosttemp") == 0) SettingsSetFrostTemperature(value);
+            if (strcmp(pName, "nighttemp") == 0) RadiatorSetNightTemperature(value);
+            if (strcmp(pName, "frosttemp") == 0) RadiatorSetFrostTemperature(value);
         }
         ResponseStart(id, REQUEST_HEATING, NULL);
         return 0;
@@ -269,10 +270,10 @@ int RequestHandle(int id)
             int value = 0;
             sscanf(pValue, "%d", &value);
                         
-            if (strcmp(pName, "tanksetpoint"  ) == 0) SettingsSetTankSetPoint       (value);
-            if (strcmp(pName, "tankhysteresis") == 0) SettingsSetTankHysteresis     (value);
-            if (strcmp(pName, "boilerresidual") == 0) SettingsSetBoilerRunOnResidual(value);
-            if (strcmp(pName, "boilerrunon"   ) == 0) SettingsSetBoilerRunOnTime    (value);
+            if (strcmp(pName, "tanksetpoint"  ) == 0) BoilerSetTankSetPoint  (value);
+            if (strcmp(pName, "tankhysteresis") == 0) BoilerSetTankHysteresis(value);
+            if (strcmp(pName, "boilerresidual") == 0) BoilerSetRunOnResidual (value);
+            if (strcmp(pName, "boilerrunon"   ) == 0) BoilerSetRunOnTime     (value);
         }
         ResponseStart(id, REQUEST_BOILER, NULL);
         return 0;
@@ -293,38 +294,39 @@ int RequestHandle(int id)
             {
                 char rom[8];
                 DeviceParseAddress(pValue, rom);
-                SettingsSetTankRom(rom);
+                BoilerSetTankRom(rom);
             }
             if (strcmp(pName, "boileroutputrom") == 0)
             {
                 char rom[8];
                 DeviceParseAddress(pValue, rom);
-                SettingsSetBoilerOutputRom(rom);
+                BoilerSetOutputRom(rom);
             }
             if (strcmp(pName, "boilerreturnrom") == 0)
             {
                 char rom[8];
                 DeviceParseAddress(pValue, rom);
-                SettingsSetBoilerReturnRom(rom);
+                BoilerSetReturnRom(rom);
             }
+            if (strcmp(pName, "newdayhour") == 0) ProgramSetNewDayHour(value);
             if (strcmp(pName, "hallrom") == 0)
             {
                 char rom[8];
                 DeviceParseAddress(pValue, rom);
-                SettingsSetHallRom(rom);
+                RadiatorSetHallRom(rom);
             }
             if (strcmp(pName, "ntpip") == 0)
             {
-                SettingsSetClockNtpIp(pValue);
+                NtpSetIp(pValue);
                 NtpRequestReconnect();
             }
-            if (strcmp(pName, "clockinitial" ) == 0) SettingsSetClockInitialInterval(value       );
-            if (strcmp(pName, "clocknormal"  ) == 0) SettingsSetClockNormalInterval (value * 3600);
-            if (strcmp(pName, "clockretry"   ) == 0) SettingsSetClockRetryInterval  (value       );
-            if (strcmp(pName, "clockoffset"  ) == 0) SettingsSetClockOffsetMs       (value       );
-            if (strcmp(pName, "clockmaxdelay") == 0) SettingsSetClockNtpMaxDelayMs  (value       );
-            if (strcmp(pName, "clockcaldiv"  ) == 0) SettingsSetClockCalDivisor     (value       );
-            if (strcmp(pName, "calibration"  ) == 0) RtcCalSet                      (value       );
+            if (strcmp(pName, "clockinitial" ) == 0) NtpSetInitialInterval(value       );
+            if (strcmp(pName, "clocknormal"  ) == 0) NtpSetNormalInterval (value * 3600);
+            if (strcmp(pName, "clockretry"   ) == 0) NtpSetRetryInterval  (value       );
+            if (strcmp(pName, "clockoffset"  ) == 0) NtpSetOffsetMs       (value       );
+            if (strcmp(pName, "clockmaxdelay") == 0) NtpSetMaxDelayMs     (value       );
+            if (strcmp(pName, "clockcaldiv"  ) == 0) RtcCalSetDivisor     (value       );
+            if (strcmp(pName, "calibration"  ) == 0) RtcCalSet            (value       );
 
         }
         ResponseStart(id, REQUEST_SYSTEM, NULL);
