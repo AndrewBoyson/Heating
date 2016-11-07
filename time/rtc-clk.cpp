@@ -47,7 +47,20 @@ void RtcClockSetTm(struct tm* ptm)
     LPC_RTC->DOY     = ptm->tm_yday + 1;    // rtc 1 --> 366;     tm 0 --> 365 
     LPC_RTC->RTC_AUX = 0x10;                //27.6.2.5 RTC Auxiliary control register - RTC Oscillator Fail detect flag - Writing a 1 to this bit clears the flag.
 }
-
+void RtcClkAddTime(int t)
+{
+    //Extract the seconds, minutes, hours and days from the time_t t
+    div_t divres;
+    divres = div(          t, 60);    int seconds  = divres.rem;
+    divres = div(divres.quot, 60);    int minutes  = divres.rem;
+    divres = div(divres.quot, 24);    int hours    = divres.rem;
+                                      int days     = divres.quot;
+    LPC_RTC->SEC     += seconds;
+    LPC_RTC->MIN     += minutes;
+    LPC_RTC->HOUR    += hours;
+    LogTimeF("Added %02d:%02d:%02d to RTC\r\n", hours, minutes, seconds);
+    if (days) LogTimeF("Could not add %d days to RTC\r\n", days);
+}
 
 void RtcClockInit()
 {

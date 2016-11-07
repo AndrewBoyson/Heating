@@ -16,9 +16,9 @@
 #include            "io.h"
 #include      "radiator.h"
 #include        "boiler.h"
-#include      "settings.h"
 #include      "watchdog.h"
 #include          "fram.h"
+#include           "ntp.h"
 
 static int fillLogChunk() //Returns true if send buffer is full
 {
@@ -184,31 +184,31 @@ int HtmlHome(int chunk)
         
         ResponseAdd("<h1>Temperature</h1>\r\n");
         int16_t temp;
-        temp = DS18B20ValueFromRom(SettingsGetHallRom());
+        temp = DS18B20ValueFromRom(RadiatorGetHallRom());
         addLabelledTemperature("Hall", 3, temp);
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Heating</h1>\r\n");
-        if (SettingsGetProgramAuto()) addFormCheckInput("/", "Auto (winter)", "autooff", "change to off (summer)");
-        else                          addFormCheckInput("/", "Off (summer)",  "autoon" , "change to auto (winter)");
+        if (ProgramGetAuto()) addFormCheckInput("/", "Auto (winter)", "autooff", "change to off (summer)");
+        else                  addFormCheckInput("/", "Off (summer)",  "autoon" , "change to auto (winter)");
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Manual program override</h1>\r\n");
-        if (SettingsGetProgramAuto())
+        if (ProgramGetAuto())
         {
             if (ProgramIsCalling)
             {
-                if (SettingsGetProgramOverride()) addFormCheckInput("/", "Heating is on (manual)", "overrideoff", "turn it off");
-                else                              addFormCheckInput("/", "Heating is on (auto)",   "overrideon",  "turn it off");
+                if (ProgramGetOverride()) addFormCheckInput("/", "Heating is on (manual)", "overrideoff", "turn it off");
+                else                      addFormCheckInput("/", "Heating is on (auto)",   "overrideon",  "turn it off");
             }
             else
             {
-                if (SettingsGetProgramOverride()) addFormCheckInput("/", "Heating is off (manual)", "overrideoff", "turn it on");
-                else                              addFormCheckInput("/", "Heating is off (auto)",   "overrideon",  "turn it on");
+                if (ProgramGetOverride()) addFormCheckInput("/", "Heating is off (manual)", "overrideoff", "turn it on");
+                else                      addFormCheckInput("/", "Heating is off (auto)",   "overrideon",  "turn it on");
             }
         }
         else
@@ -254,19 +254,19 @@ int HtmlProgram(int chunk)
         ResponseAdd("<h1>Days</h1>\r\n");
         addFormStart("/program");
         ResponseAdd("<div>\r\n");
-        addFormIntInput(3.3, "Mon", 2.3, "mon", 1, SettingsGetProgramDay(1) + 1);
-        addFormIntInput(3.3, "Tue", 2.3, "tue", 1, SettingsGetProgramDay(2) + 1);
-        addFormIntInput(3.3, "Wed", 2.3, "wed", 1, SettingsGetProgramDay(3) + 1);
-        addFormIntInput(3.3, "Thu", 2.3, "thu", 1, SettingsGetProgramDay(4) + 1);
-        addFormIntInput(3.3, "Fri", 2.3, "fri", 1, SettingsGetProgramDay(5) + 1);
+        addFormIntInput(3.3, "Mon", 2.3, "mon", 1, ProgramGetDay(1) + 1);
+        addFormIntInput(3.3, "Tue", 2.3, "tue", 1, ProgramGetDay(2) + 1);
+        addFormIntInput(3.3, "Wed", 2.3, "wed", 1, ProgramGetDay(3) + 1);
+        addFormIntInput(3.3, "Thu", 2.3, "thu", 1, ProgramGetDay(4) + 1);
+        addFormIntInput(3.3, "Fri", 2.3, "fri", 1, ProgramGetDay(5) + 1);
         ResponseAdd("</div>\r\n");
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {       
         ResponseAdd("<div>\r\n");
-        addFormIntInput(3.3, "Sat", 2.3, "sat", 1, SettingsGetProgramDay(6) + 1);
-        addFormIntInput(3.3, "Sun", 2.3, "sun", 1, SettingsGetProgramDay(0) + 1);
+        addFormIntInput(3.3, "Sat", 2.3, "sat", 1, ProgramGetDay(6) + 1);
+        addFormIntInput(3.3, "Sun", 2.3, "sun", 1, ProgramGetDay(0) + 1);
         ResponseAdd("</div>\r\n");
         addFormEnd();
         return RESPONSE_SEND_CHUNK;
@@ -294,9 +294,9 @@ int HtmlHeating(int chunk)
     if (++posn == chunk)
     {        
         ResponseAdd("<h1>Inputs</h1>\r\n");
-        int16_t temp = DS18B20ValueFromRom(SettingsGetHallRom());
+        int16_t temp = DS18B20ValueFromRom(RadiatorGetHallRom());
         addLabelledTemperature("Hall"     , 10, temp);
-        addLabelledOnOff("Winter mode"    , 10, SettingsGetProgramAuto());
+        addLabelledOnOff("Winter mode"    , 10, ProgramGetAuto());
         addLabelledOnOff("Heating program", 10, ProgramIsCalling);
         return RESPONSE_SEND_CHUNK;
     }
@@ -304,8 +304,8 @@ int HtmlHeating(int chunk)
     {
         ResponseAdd("<h1>Parameters</h1>\r\n");
         addFormStart("/heating");
-        addFormIntInput(0, "Winter (night)", 10, "nighttemp", 2, SettingsGetNightTemperature());
-        addFormIntInput(0, "Summer (frost)", 10, "frosttemp", 2, SettingsGetFrostTemperature());
+        addFormIntInput(0, "Winter (night)", 10, "nighttemp", 2, RadiatorGetNightTemperature());
+        addFormIntInput(0, "Summer (frost)", 10, "frosttemp", 2, RadiatorGetFrostTemperature());
         addFormEnd();
         return RESPONSE_SEND_CHUNK;
     }
@@ -340,19 +340,19 @@ int HtmlBoiler(int chunk)
         ResponseAdd("<h1>Inputs</h1>\r\n");
         int16_t temp;
         
-        temp = DS18B20ValueFromRom(SettingsGetTankRom());          addLabelledTemperature("Tank",          10, temp);
-        temp = DS18B20ValueFromRom(SettingsGetBoilerOutputRom());  addLabelledTemperature("Boiler output", 10, temp);
-        temp = DS18B20ValueFromRom(SettingsGetBoilerReturnRom());  addLabelledTemperature("Boiler return", 10, temp);
+        temp = DS18B20ValueFromRom(BoilerGetTankRom());    addLabelledTemperature("Tank",          10, temp);
+        temp = DS18B20ValueFromRom(BoilerGetOutputRom());  addLabelledTemperature("Boiler output", 10, temp);
+        temp = DS18B20ValueFromRom(BoilerGetReturnRom());  addLabelledTemperature("Boiler return", 10, temp);
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
         ResponseAdd("<h1>Parameters</h1>\r\n");
         addFormStart("/boiler");
-        addFormIntInput(0, "Tank set point",         10, "tanksetpoint",   2, SettingsGetTankSetPoint());
-        addFormIntInput(0, "Tank hysteresis",        10, "tankhysteresis", 2, SettingsGetTankHysteresis());
-        addFormIntInput(0, "Boiler run on residual", 10, "boilerresidual", 2, SettingsGetBoilerRunOnResidual());
-        addFormIntInput(0, "Boiler run on time",     10, "boilerrunon",    2, SettingsGetBoilerRunOnTime());
+        addFormIntInput(0, "Tank set point",         10, "tanksetpoint",   2, BoilerGetTankSetPoint());
+        addFormIntInput(0, "Tank hysteresis",        10, "tankhysteresis", 2, BoilerGetTankHysteresis());
+        addFormIntInput(0, "Boiler run on residual", 10, "boilerresidual", 2, BoilerGetRunOnResidual());
+        addFormIntInput(0, "Boiler run on time",     10, "boilerrunon",    2, BoilerGetRunOnTime());
         addFormEnd();
         return RESPONSE_SEND_CHUNK;
     }
@@ -431,31 +431,41 @@ int HtmlSystem(int chunk)
         char text[DEVICE_ADDRESS_STRING_LENGTH];
         
         addFormStart("/system");
-        DeviceAddressToString(SettingsGetTankRom(),         text); addFormTextInput(0, "Tank",          6, "tankrom",         11, text);
-        DeviceAddressToString(SettingsGetBoilerOutputRom(), text); addFormTextInput(0, "Boiler output", 6, "boileroutputrom", 11, text);
-        DeviceAddressToString(SettingsGetBoilerReturnRom(), text); addFormTextInput(0, "Boiler return", 6, "boilerreturnrom", 11, text);
-        DeviceAddressToString(SettingsGetHallRom(),         text); addFormTextInput(0, "Hall",          6, "hallrom",         11, text);
+        DeviceAddressToString(BoilerGetTankRom(),   text); addFormTextInput(0, "Tank",          6, "tankrom",         11, text);
+        DeviceAddressToString(BoilerGetOutputRom(), text); addFormTextInput(0, "Boiler output", 6, "boileroutputrom", 11, text);
+        DeviceAddressToString(BoilerGetReturnRom(), text); addFormTextInput(0, "Boiler return", 6, "boilerreturnrom", 11, text);
+        DeviceAddressToString(RadiatorGetHallRom(), text); addFormTextInput(0, "Hall",          6, "hallrom",         11, text);
         addFormEnd();
         
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
+        ResponseAdd("<h1>Start of new day</h1>\r\n");
+        addFormStart("/system");
+        ResponseAdd("<div>\r\n");
+        addFormIntInput(0, "Hour", 6, "newdayhour", 2, ProgramGetNewDayHour());
+        ResponseAdd("</div>\r\n");
+        addFormEnd();
+        return RESPONSE_SEND_CHUNK;
+    }
+    if (++posn == chunk)
+    {
         ResponseAdd("<h1>Clock</h1>\r\n");
         
-        addFormStart("/system"); addFormTextInput(0, "NTP IP",               10, "ntpip",         6, SettingsGetClockNtpIp()                  ); addFormEnd();
-        addFormStart("/system"); addFormIntInput (0, "Initial interval (s)", 10, "clockinitial",  3, SettingsGetClockInitialInterval()        ); addFormEnd();
-        addFormStart("/system"); addFormIntInput (0, "Normal interval (h)",  10, "clocknormal",   3, SettingsGetClockNormalInterval() / 3600  ); addFormEnd();
-        addFormStart("/system"); addFormIntInput (0, "Retry interval (s)",   10, "clockretry",    3, SettingsGetClockRetryInterval()          ); addFormEnd();
+        addFormStart("/system"); addFormTextInput(0, "NTP IP",               10, "ntpip",         6, NtpGetIp()                     ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Initial interval (s)", 10, "clockinitial",  3, NtpGetInitialInterval()        ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Normal interval (h)",  10, "clocknormal",   3, NtpGetNormalInterval() / 3600  ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Retry interval (s)",   10, "clockretry",    3, NtpGetRetryInterval()          ); addFormEnd();
         
         return RESPONSE_SEND_CHUNK;
     }
     if (++posn == chunk)
     {
-        addFormStart("/system"); addFormIntInput (0, "Offset (ms)",          10, "clockoffset",   3, SettingsGetClockOffsetMs()        ); addFormEnd();
-        addFormStart("/system"); addFormIntInput (0, "Max delay (ms)",       10, "clockmaxdelay", 3, SettingsGetClockNtpMaxDelayMs()   ); addFormEnd();
-        addFormStart("/system"); addFormIntInput (0, "Calibration divisor",  10, "clockcaldiv",   8, SettingsGetClockCalDivisor()      ); addFormEnd();
-        addFormStart("/system"); addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcCalGet()                       ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Offset (ms)",          10, "clockoffset",   3, NtpGetOffsetMs()   ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Max delay (ms)",       10, "clockmaxdelay", 3, NtpGetMaxDelayMs() ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Calibration divisor",  10, "clockcaldiv",   8, RtcCalGetDivisor() ); addFormEnd();
+        addFormStart("/system"); addFormIntInput (0, "Calibration",          10, "calibration",   8, RtcCalGet()        ); addFormEnd();
         
         return RESPONSE_SEND_CHUNK;
     }

@@ -5,13 +5,68 @@
 #include      "rtc.h"
 #include       "io.h"
 #include       "at.h"
-#include "settings.h"
+#include     "fram.h"
 
 #define ERA_BASE     0
 #define ERA_PIVOT 2016
 
 #define ID 3
 
+
+static void ipBinToStr(char* bytes, char* text)
+{
+    snprintf(text, 16, "%d.%d.%d.%d", bytes[3], bytes[2], bytes[1], bytes[0]);
+}
+
+static void ipStrToBin(char* text, char* bytes)
+{
+    int ints[4];
+    sscanf(text, "%d.%d.%d.%d", &ints[3], &ints[2], &ints[1], &ints[0]);
+    bytes[3] = ints[3] & 0xFF;
+    bytes[2] = ints[2] & 0xFF;
+    bytes[1] = ints[1] & 0xFF;
+    bytes[0] = ints[0] & 0xFF;
+}
+
+static char    ip[16];           static int iIp;
+static int32_t initialInterval;  static int iInitialInterval;
+static int32_t normalInterval;   static int iNormalInterval;
+static int32_t retryInterval;    static int iRetryInterval;
+static int32_t offsetMs;         static int iOffsetMs;
+static int32_t maxDelayMs;       static int iMaxDelayMs;
+
+char* NtpGetIp             (){ return       ip;              } 
+int   NtpGetInitialInterval(){ return (int) initialInterval; } 
+int   NtpGetNormalInterval (){ return (int) normalInterval;  } 
+int   NtpGetRetryInterval  (){ return (int) retryInterval;   } 
+int   NtpGetOffsetMs       (){ return (int) offsetMs;        } 
+int   NtpGetMaxDelayMs     (){ return (int) maxDelayMs;      } 
+
+
+void NtpSetIp              ( char *value) { strncpy(ip, value, 16); char bin[4]; ipStrToBin(ip, bin); FramWrite(iIp,              4, bin              ); }
+void NtpSetInitialInterval ( int   value) { initialInterval    = (int32_t)value;                      FramWrite(iInitialInterval, 4, &initialInterval ); }
+void NtpSetNormalInterval  ( int   value) { normalInterval     = (int32_t)value;                      FramWrite(iNormalInterval,  4, &normalInterval  ); }
+void NtpSetRetryInterval   ( int   value) { retryInterval      = (int32_t)value;                      FramWrite(iRetryInterval,   4, &retryInterval   ); }
+void NtpSetOffsetMs        ( int   value) { offsetMs           = (int32_t)value;                      FramWrite(iOffsetMs,        4, &offsetMs        ); }
+void NtpSetMaxDelayMs      ( int   value) { maxDelayMs         = (int32_t)value;                      FramWrite(iMaxDelayMs,      4, &maxDelayMs      ); }
+
+int  NtpInit()
+{
+    int address;
+    char    bin[4];
+    int32_t def4;
+    
+                address = FramLoad( 4,               bin,              NULL); if (address < 0) return -1; iIp              = address; ipBinToStr(bin, ip);
+    def4 =   1; address = FramLoad( 4,              &initialInterval, &def4); if (address < 0) return -1; iInitialInterval = address;
+    def4 = 600; address = FramLoad( 4,              &normalInterval,  &def4); if (address < 0) return -1; iNormalInterval  = address;
+    def4 =  60; address = FramLoad( 4,              &retryInterval,   &def4); if (address < 0) return -1; iRetryInterval   = address; 
+    def4 =   0; address = FramLoad( 4,              &offsetMs,        &def4); if (address < 0) return -1; iOffsetMs        = address; 
+    def4 =  50; address = FramLoad( 4,              &maxDelayMs,      &def4); if (address < 0) return -1; iMaxDelayMs      = address; 
+
+    EspIpdReserved[ID] = true;
+    
+    return 0;
+}
 struct Packet {
     union
     {
@@ -78,10 +133,6 @@ void setTimeAsNtp(uint64_t ntpTime)
     uint64_t rtcTime = (ntp28 >> (28 - RTC_RESOLUTION_BITS));
     RtcSet(rtcTime);
 }
-void NtpInit()
-{
-    EspIpdReserved[ID] = true;
-}
 int preparePacket()
 {        
     memset(&packet, 0, sizeof(packet));
@@ -104,14 +155,14 @@ int handlePacket()
     if (stratum == 0) { LogTimeF("Received Kiss of Death packet (stratum is 0)\r\n"); return -1; }
 
     //Check the received timestamp delay
-    uint64_t delay = getTimeAsNtp() - ntohll(packet.OriTimeStamp);
+    uint64_t delay   = getTimeAsNtp() - ntohll(packet.OriTimeStamp);
     uint64_t delayMs = delay >> 22; //This is approximate as the seconds are divided by 1024 rather than 1000 but close enough
-    uint64_t limit = SettingsGetClockNtpMaxDelayMs();
+    uint64_t limit   = NtpGetMaxDelayMs();
     if (delayMs > limit) { LogTimeF("Delay %llu ms is greater than limit %llu ms\r\n", delayMs, limit); return -1; }
     
     //Set the RTC
     uint64_t ntpTime = ntohll(packet.RecTimeStamp);
-    int64_t offset = SettingsGetClockOffsetMs() << 22; //This is approximate as the milliseconds are multiplied by 1024 rather than 1000 but close enough
+    int64_t offset = NtpGetOffsetMs() << 22; //This is approximate as the milliseconds are multiplied by 1024 rather than 1000 but close enough
     setTimeAsNtp(ntpTime + offset);
     
     return 0;
@@ -143,9 +194,9 @@ static bool intervalComplete()
     uint64_t interval;
     switch(intervalType)
     {
-        case INTERVAL_INITIAL: interval = SettingsGetClockInitialInterval(); break;
-        case INTERVAL_NORMAL:  interval = SettingsGetClockNormalInterval();  break;
-        case INTERVAL_RETRY:   interval = SettingsGetClockRetryInterval();   break;
+        case INTERVAL_INITIAL: interval = NtpGetInitialInterval(); break;
+        case INTERVAL_NORMAL:  interval = NtpGetNormalInterval();  break;
+        case INTERVAL_RETRY:   interval = NtpGetRetryInterval();   break;
     }
     interval <<= RTC_RESOLUTION_BITS;
     return RtcGet() - timeStart >= interval;
@@ -170,7 +221,7 @@ static int outgoingMain()
         return 0;
     }
     
-    char* ntpIp = SettingsGetClockNtpIp();
+    char* ntpIp = NtpGetIp();
 
     switch (am)
     {

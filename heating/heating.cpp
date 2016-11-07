@@ -10,3 +10,11 @@ int HeatingMain()
     
     return 0;
 }
+int HeatingInit()
+{
+    BoilerInit();
+    RadiatorInit();
+    ProgramInit();
+    
+    return 0;
+}

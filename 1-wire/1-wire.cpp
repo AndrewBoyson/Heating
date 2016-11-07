@@ -204,7 +204,7 @@ int OneWireMain()
         busytimer.start();
         if (busytimer.read_ms() > BUS_TIMEOUT_MS)
         {
-            LogCrLf("1-wire bus timed out so protocol has been reset to idle.");
+            LogTimeCrLf("1-wire bus timed out so protocol has been reset to idle.");
             OneWireInit();
             result = ONE_WIRE_RESULT_TIMED_OUT;
             return 0;
@@ -225,7 +225,7 @@ int OneWireMain()
         case HANDLE_RESET_END:
             if (OneWireBusValue)
             {
-                LogCrLf("No 1-wire device presence detected on the bus");
+                LogTimeCrLf("No 1-wire device presence detected on the bus");
                 result = ONE_WIRE_RESULT_NO_DEVICE_PRESENT;
                 state = WAIT_FOR_SOMETHING_TO_DO;
             }
@@ -237,7 +237,7 @@ int OneWireMain()
                     case JOB_XCHG:   state =   SEND_NEXT_XCHG_WRITE; break;
                     case JOB_SEARCH: state = SEND_NEXT_SEARCH_WRITE; break;
                     default:
-                        LogF("Unknown job in RESET_RELEASE %d\r\n", job);
+                        LogTimeF("Unknown job in RESET_RELEASE %d\r\n", job);
                         return -1;
                 }
             }
@@ -310,7 +310,7 @@ int OneWireMain()
             direction = chooseDirectionToTake();
             if (direction == -1)
             {
-                LogCrLf("No devices have responded");
+                LogTimeCrLf("No devices have responded");
                 result = ONE_WIRE_RESULT_NO_DEVICE_PARTICIPATING;
                 state = WAIT_FOR_SOMETHING_TO_DO;
             }
@@ -337,7 +337,7 @@ int OneWireMain()
             }
             break;
         default:
-            LogF("Unknown state %d\r\n", state);
+            LogTimeF("Unknown state %d\r\n", state);
             return -1;
     }
     return 0;
