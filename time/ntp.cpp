@@ -1,32 +1,17 @@
-#include     <mbed.h>
-#include      "log.h"
-#include      "esp.h"
-#include     "wifi.h"
-#include      "rtc.h"
-#include       "io.h"
-#include       "at.h"
-#include     "fram.h"
+#include <mbed.h>
+#include  "log.h"
+#include  "esp.h"
+#include "wifi.h"
+#include  "rtc.h"
+#include   "io.h"
+#include   "at.h"
+#include "fram.h"
+#include  "net.h"
 
 #define ERA_BASE     0
 #define ERA_PIVOT 2016
 
 #define ID 3
-
-
-static void ipBinToStr(char* bytes, char* text)
-{
-    snprintf(text, 16, "%d.%d.%d.%d", bytes[3], bytes[2], bytes[1], bytes[0]);
-}
-
-static void ipStrToBin(char* text, char* bytes)
-{
-    int ints[4];
-    sscanf(text, "%d.%d.%d.%d", &ints[3], &ints[2], &ints[1], &ints[0]);
-    bytes[3] = ints[3] & 0xFF;
-    bytes[2] = ints[2] & 0xFF;
-    bytes[1] = ints[1] & 0xFF;
-    bytes[0] = ints[0] & 0xFF;
-}
 
 static char    ip[16];           static int iIp;
 static int32_t initialInterval;  static int iInitialInterval;
@@ -43,44 +28,36 @@ int   NtpGetOffsetMs       (){ return (int) offsetMs;        }
 int   NtpGetMaxDelayMs     (){ return (int) maxDelayMs;      } 
 
 
-void NtpSetIp              ( char *value) { strncpy(ip, value, 16); char bin[4]; ipStrToBin(ip, bin); FramWrite(iIp,              4, bin              ); }
-void NtpSetInitialInterval ( int   value) { initialInterval    = (int32_t)value;                      FramWrite(iInitialInterval, 4, &initialInterval ); }
-void NtpSetNormalInterval  ( int   value) { normalInterval     = (int32_t)value;                      FramWrite(iNormalInterval,  4, &normalInterval  ); }
-void NtpSetRetryInterval   ( int   value) { retryInterval      = (int32_t)value;                      FramWrite(iRetryInterval,   4, &retryInterval   ); }
-void NtpSetOffsetMs        ( int   value) { offsetMs           = (int32_t)value;                      FramWrite(iOffsetMs,        4, &offsetMs        ); }
-void NtpSetMaxDelayMs      ( int   value) { maxDelayMs         = (int32_t)value;                      FramWrite(iMaxDelayMs,      4, &maxDelayMs      ); }
+void NtpSetIp              ( char *value) { strncpy(ip, value, 16); char bin[4]; NetIp4StrToBin(ip, bin); FramWrite(iIp,              4, bin              ); }
+void NtpSetInitialInterval ( int   value) { initialInterval    = (int32_t)value;                          FramWrite(iInitialInterval, 4, &initialInterval ); }
+void NtpSetNormalInterval  ( int   value) { normalInterval     = (int32_t)value;                          FramWrite(iNormalInterval,  4, &normalInterval  ); }
+void NtpSetRetryInterval   ( int   value) { retryInterval      = (int32_t)value;                          FramWrite(iRetryInterval,   4, &retryInterval   ); }
+void NtpSetOffsetMs        ( int   value) { offsetMs           = (int32_t)value;                          FramWrite(iOffsetMs,        4, &offsetMs        ); }
+void NtpSetMaxDelayMs      ( int   value) { maxDelayMs         = (int32_t)value;                          FramWrite(iMaxDelayMs,      4, &maxDelayMs      ); }
 
 int  NtpInit()
 {
     int address;
-    char    bin[4];
     int32_t def4;
     
-                address = FramLoad( 4,               bin,              NULL); if (address < 0) return -1; iIp              = address; ipBinToStr(bin, ip);
-    def4 =   1; address = FramLoad( 4,              &initialInterval, &def4); if (address < 0) return -1; iInitialInterval = address;
-    def4 = 600; address = FramLoad( 4,              &normalInterval,  &def4); if (address < 0) return -1; iNormalInterval  = address;
-    def4 =  60; address = FramLoad( 4,              &retryInterval,   &def4); if (address < 0) return -1; iRetryInterval   = address; 
-    def4 =   0; address = FramLoad( 4,              &offsetMs,        &def4); if (address < 0) return -1; iOffsetMs        = address; 
-    def4 =  50; address = FramLoad( 4,              &maxDelayMs,      &def4); if (address < 0) return -1; iMaxDelayMs      = address; 
+    char bin[4]; address = FramLoad( 4,  bin,              NULL); if (address < 0) return -1; iIp              = address; NetIp4BinToStr(bin, sizeof(ip), ip);
+    def4 =    1; address = FramLoad( 4, &initialInterval, &def4); if (address < 0) return -1; iInitialInterval = address;
+    def4 =  600; address = FramLoad( 4, &normalInterval,  &def4); if (address < 0) return -1; iNormalInterval  = address;
+    def4 =   60; address = FramLoad( 4, &retryInterval,   &def4); if (address < 0) return -1; iRetryInterval   = address; 
+    def4 =    0; address = FramLoad( 4, &offsetMs,        &def4); if (address < 0) return -1; iOffsetMs        = address; 
+    def4 =   50; address = FramLoad( 4, &maxDelayMs,      &def4); if (address < 0) return -1; iMaxDelayMs      = address; 
 
     EspIpdReserved[ID] = true;
     
     return 0;
 }
-struct Packet {
-    union
-    {
-        uint32_t FirstLine;
-        struct
-        {
-            unsigned Mode : 3;
-            unsigned VN   : 3;
-            unsigned LI   : 2;
-            uint8_t  Stratum; 
-             int8_t  Poll;
-             int8_t  Precision;
-        };
-    };
+__packed struct {
+    unsigned Mode : 3;
+    unsigned VN   : 3;
+    unsigned LI   : 2;
+    uint8_t  Stratum; 
+     int8_t  Poll;
+     int8_t  Precision;
     uint32_t RootDelay;
     uint32_t Dispersion;
     uint32_t RefIdentifier;
@@ -89,32 +66,8 @@ struct Packet {
     uint64_t OriTimeStamp;
     uint64_t RecTimeStamp;
     uint64_t TraTimeStamp;
-};
-static struct Packet packet;
+} packet;
 
-static uint64_t ntohll(uint64_t n) {
-    int testInt = 0x0001; //Big end contains 0x00; little end contains 0x01
-    int *pTestInt = &testInt;
-    char *pTestByte = (char*)pTestInt;
-    char testByte = *pTestByte; //fetch the first byte
-    if (testByte == 0x00) return n; //If the first byte is the big end then host and network have same endianess
-    
-    union ull
-    {
-        uint64_t Whole;
-        char Bytes[8];
-    };
-    union ull h;
-    h.Whole = n;
-    
-    char t;
-    t = h.Bytes[7]; h.Bytes[7] = h.Bytes[0]; h.Bytes[0] = t;
-    t = h.Bytes[6]; h.Bytes[6] = h.Bytes[1]; h.Bytes[1] = t;
-    t = h.Bytes[5]; h.Bytes[5] = h.Bytes[2]; h.Bytes[2] = t;
-    t = h.Bytes[4]; h.Bytes[4] = h.Bytes[3]; h.Bytes[3] = t;
-    
-    return h.Whole;
-}
 uint64_t getTimeAsNtp()
 {
     uint64_t ntp28 = 2208988800ULL << 28;            //Fill with 1970 - 1900
@@ -139,7 +92,7 @@ int preparePacket()
     packet.LI   = 0;
     packet.VN   = 1;
     packet.Mode = 3; //Client
-    packet.TraTimeStamp = ntohll(getTimeAsNtp());
+    packet.TraTimeStamp = NetToHost64(getTimeAsNtp());
     return 0;
 }
 int handlePacket()
@@ -155,13 +108,13 @@ int handlePacket()
     if (stratum == 0) { LogTimeF("Received Kiss of Death packet (stratum is 0)\r\n"); return -1; }
 
     //Check the received timestamp delay
-    uint64_t delay   = getTimeAsNtp() - ntohll(packet.OriTimeStamp);
+    uint64_t delay   = getTimeAsNtp() - NetToHost64(packet.OriTimeStamp);
     uint64_t delayMs = delay >> 22; //This is approximate as the seconds are divided by 1024 rather than 1000 but close enough
     uint64_t limit   = NtpGetMaxDelayMs();
     if (delayMs > limit) { LogTimeF("Delay %llu ms is greater than limit %llu ms\r\n", delayMs, limit); return -1; }
     
     //Set the RTC
-    uint64_t ntpTime = ntohll(packet.RecTimeStamp);
+    uint64_t ntpTime = NetToHost64(packet.RecTimeStamp);
     int64_t offset = NtpGetOffsetMs() << 22; //This is approximate as the milliseconds are multiplied by 1024 rather than 1000 but close enough
     setTimeAsNtp(ntpTime + offset);
     
@@ -282,7 +235,7 @@ static int outgoingMain()
             }
             break;
         default:
-            LogF("Unknown \'am\' %d", am);
+            LogTimeF("Unknown \'am\' %d", am);
             return -1;
     }
    
@@ -299,7 +252,7 @@ static int incomingMain()
         }
         else
         {
-            LogF("Incorrect NTP packet length of %d bytes", EspIpdLength);
+            LogTimeF("Incorrect NTP packet length of %d bytes", EspIpdLength);
         }
     }
     return 0;
