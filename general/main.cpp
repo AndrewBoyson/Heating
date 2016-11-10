@@ -16,12 +16,13 @@
 #include      "watchdog.h"
 #include        "nonvol.h"
 #include          "fram.h"
+#include           "net.h"
 
 int MainScanUs = 0;
 int MainLastProgramPosition;
 static volatile int position = 0;
 
-void MainSaveProgramPositionAndReset()
+static void saveProgramPositionAndReset()
 {
     NonVolSetMainPosition(position);
     NVIC_SystemReset();
@@ -36,12 +37,13 @@ int main()
     
     int r = 0;
     
-    r = WatchdogInit();
+    r = WatchdogInit(&saveProgramPositionAndReset);
     r =       IoInit();
     r =      LogInit();
     r =      CfgInit();
     r =     FramInit(); //Reserves 1 FRAM byte to detect if empty
     r =      RtcInit();
+    r =      NetInit();
     r =     UartInit();
     r =      EspInit();
     r =       AtInit();
